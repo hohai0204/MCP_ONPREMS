@@ -25,7 +25,7 @@ def i(name, label):
 
 
 ENTITIES = {
-    # name: (entity set, creatable, properties)
+    # name: (entity set, creatable/updatable, properties)
     'Vendor': ('VendorSet', True, [
         s('Supplier', 10, 'Supplier', True), s('BusinessPartner', 10, 'Business Partner'),
         s('BPGrouping', 4, 'BP Grouping'), s('AccountGroup', 4, 'Account Group'),
@@ -100,7 +100,7 @@ for assoc, frm, nav, to, key in ASSOCIATIONS:
 out.append(f'      <EntityContainer Name="{NS}_Entities" m:IsDefaultEntityContainer="true" sap:supported-formats="atom json xlsx">')
 for name, (eset, creatable, _) in ENTITIES.items():
     c = 'true' if creatable else 'false'
-    out.append(f'        <EntitySet Name="{eset}" EntityType="{NS}.{name}" sap:creatable="{c}" sap:updatable="false" '
+    out.append(f'        <EntitySet Name="{eset}" EntityType="{NS}.{name}" sap:creatable="{c}" sap:updatable="{c}" '
                f'sap:deletable="false" sap:pageable="true" sap:content-version="1"/>')
 for assoc, frm, nav, to, _ in ASSOCIATIONS:
     fs, ts = ENTITIES[frm][0], ENTITIES[to][0]

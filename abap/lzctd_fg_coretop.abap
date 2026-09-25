@@ -89,3 +89,18 @@ CONSTANTS: gc_bp_group_def  TYPE bu_group VALUE 'Z001',
            gc_bp_waers_def  TYPE bstwa    VALUE 'VND',
            gc_bp_role_fi    TYPE bu_role  VALUE 'FLVN00',
            gc_bp_role_purch TYPE bu_role  VALUE 'FLVN01'.
+
+" nhà cung cấp đã có (chế độ đổi của ZCTD_FM_CREATE_BP)
+TYPES: BEGIN OF gty_bp_exist,
+         lifnr      TYPE lifnr,
+         partner    TYPE bu_partner,
+         guid       TYPE bu_partner_guid,
+         guid_c     TYPE bu_partner_guid_bapi,
+         addr_guid  TYPE sysuuid_c,
+         addrnumber TYPE ad_addrnum,
+         tel_cons   TYPE ad_consnum,
+         smtp_cons  TYPE ad_consnum,
+         t_role     TYPE STANDARD TABLE OF bu_role WITH EMPTY KEY,
+         t_bukrs    TYPE STANDARD TABLE OF bukrs WITH EMPTY KEY,
+         t_ekorg    TYPE STANDARD TABLE OF ekorg WITH EMPTY KEY,
+       END OF gty_bp_exist.

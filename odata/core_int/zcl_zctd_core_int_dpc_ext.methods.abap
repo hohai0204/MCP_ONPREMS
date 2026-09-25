@@ -240,10 +240,12 @@ CLASS lcl_vendor DEFINITION FINAL.
       IMPORTING iv_supplier      TYPE csequence
       RETURNING VALUE(rs_vendor) TYPE zcl_zctd_core_int_mpc=>ts_vendor
       RAISING   /iwbep/cx_mgw_busi_exception.
-    "! tạo BP + nhà cung cấp bằng ZCTD_FM_CREATE_BP; iv_testrun = chỉ kiểm tra
+    "! tạo BP + nhà cung cấp bằng ZCTD_FM_CREATE_BP; iv_testrun = chỉ kiểm tra;
+    "! iv_supplier = mã NCC đã có -> cập nhật (chỉ đổi các ô được truyền)
     CLASS-METHODS create
-      IMPORTING is_vendor  TYPE zcl_zctd_core_int_mpc=>ts_vendor
-                iv_testrun TYPE abap_bool
+      IMPORTING is_vendor   TYPE zcl_zctd_core_int_mpc=>ts_vendor
+                iv_testrun  TYPE abap_bool
+                iv_supplier TYPE csequence OPTIONAL
       EXPORTING es_vendor  TYPE zcl_zctd_core_int_mpc=>ts_vendor
                 et_return  TYPE bapiret2_t
       RAISING   /iwbep/cx_mgw_busi_exception.
@@ -311,17 +313,22 @@ CLASS lcl_vendor IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+    DATA(lv_existing) = COND lifnr( WHEN iv_supplier IS NOT INITIAL THEN |{ iv_supplier ALPHA = IN WIDTH = 10 }| ).
     CALL FUNCTION 'ZCTD_FM_CREATE_BP'
       EXPORTING
         is_supplier = ls_supplier
         iv_testrun  = iv_testrun
+        iv_supplier = lv_existing
       IMPORTING
         ev_partner  = lv_partner
         ev_supplier = lv_lifnr
         et_return   = et_return.
     lcl_api=>check_return( et_return ).
 
-    IF iv_testrun = abap_true OR lv_lifnr IS INITIAL.
+    IF lv_existing IS NOT INITIAL.
+      " cập nhật (kể cả chạy thử): trả dữ liệu hiện tại của NCC
+      es_vendor = get_one( lv_existing ).
+    ELSEIF iv_testrun = abap_true OR lv_lifnr IS INITIAL.
       es_vendor = is_vendor.
       es_vendor-businesspartner = lv_partner.
     ELSE.
@@ -445,6 +452,7 @@ ENDMETHOD.
 METHOD vendorset_create_entity.
 * POST /VendorSet[?TestRun=X]  body: Name1, Country (bắt buộc), BPGrouping, SearchTerm,
 *      Street, City, PostalCode, Region, Language (ISO, vd VI/EN), Telephone, Email
+*      Có Supplier (mã NCC đã có) -> CẬP NHẬT NCC đó thay vì tạo mới.
 * TestRun=X: chỉ kiểm tra, không lưu. Message kết quả trả ở header sap-message.
     DATA: ls_input   TYPE zcl_zctd_core_int_mpc=>ts_vendor,
           lt_return  TYPE bapiret2_t,
@@ -467,10 +475,11 @@ METHOD vendorset_create_entity.
     ENDIF.
 
     TRY.
-        lcl_vendor=>create( EXPORTING is_vendor  = ls_input
-                                      iv_testrun = lv_testrun
-                            IMPORTING es_vendor  = er_entity
-                                      et_return  = lt_return ).
+        lcl_vendor=>create( EXPORTING is_vendor   = ls_input
+                                      iv_testrun  = lv_testrun
+                                      iv_supplier = ls_input-supplier
+                            IMPORTING es_vendor   = er_entity
+                                      et_return   = lt_return ).
         DELETE lt_return WHERE type <> 'S'.
         mo_context->get_message_container( )->add_messages_from_bapi(
           it_bapi_messages          = lt_return
@@ -479,6 +488,50 @@ METHOD vendorset_create_entity.
                          iv_message = COND #( WHEN lt_return IS NOT INITIAL
                                               THEN CONV string( lt_return[ lines( lt_return ) ]-message ) ELSE `Success` )
                          iv_http    = '201' ).
+      CATCH /iwbep/cx_mgw_busi_exception INTO DATA(lx_error).
+        lo_api->failure( lx_error ).
+        RAISE EXCEPTION lx_error.
+    ENDTRY.
+ENDMETHOD.
+METHOD vendorset_update_entity.
+* PUT /VendorSet('0000800000')[?TestRun=X]  body: các ô muốn đổi (Name1, SearchTerm,
+*     Street, City, PostalCode, Region, Country, Language, Telephone, Email).
+* Ô để trống -> giữ nguyên. NCC chưa có dữ liệu công ty / mua hàng -> tự mở 1000/1000.
+    DATA: ls_input   TYPE zcl_zctd_core_int_mpc=>ts_vendor,
+          lt_return  TYPE bapiret2_t,
+          lv_testrun TYPE abap_bool.
+
+    io_data_provider->read_entry_data( IMPORTING es_data = ls_input ).
+    DATA(lv_supplier) = lcl_api=>key_value( it_key_tab = it_key_tab iv_name = 'Supplier' ).
+    DATA(lo_api) = NEW lcl_api( io_runtime = me
+                                ir_request = mr_request_details
+                                iv_object  = iv_entity_set_name
+                                iv_method  = `PUT`
+                                iv_body    = /ui2/cl_json=>serialize( data        = ls_input
+                                                                      compress    = abap_true
+                                                                      pretty_name = /ui2/cl_json=>pretty_mode-camel_case ) ).
+    IF mr_request_details IS BOUND.
+      LOOP AT mr_request_details->t_uri_query_parameter INTO DATA(ls_param) WHERE value IS NOT INITIAL.
+        IF to_upper( ls_param-name ) = `TESTRUN`.
+          lv_testrun = xsdbool( to_upper( ls_param-value ) = `X` OR to_upper( ls_param-value ) = `TRUE` ).
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    TRY.
+        lcl_vendor=>create( EXPORTING is_vendor   = ls_input
+                                      iv_testrun  = lv_testrun
+                                      iv_supplier = lv_supplier
+                            IMPORTING es_vendor   = er_entity
+                                      et_return   = lt_return ).
+        DELETE lt_return WHERE type <> 'S'.
+        mo_context->get_message_container( )->add_messages_from_bapi(
+          it_bapi_messages          = lt_return
+          iv_add_to_response_header = abap_true ).
+        lo_api->success( is_data    = er_entity
+                         iv_message = COND #( WHEN lt_return IS NOT INITIAL
+                                              THEN CONV string( lt_return[ lines( lt_return ) ]-message ) ELSE `Success` )
+                         iv_http    = '204' ).
       CATCH /iwbep/cx_mgw_busi_exception INTO DATA(lx_error).
         lo_api->failure( lx_error ).
         RAISE EXCEPTION lx_error.

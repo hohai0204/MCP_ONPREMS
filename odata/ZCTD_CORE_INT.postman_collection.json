@@ -324,6 +324,121 @@
             },
             "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country."
           }
+        },
+        {
+          "name": "Đổi vendor - chạy thử (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name1\": \"TÊN MỚI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"new@abc.vn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet('{{supplier}}')?sap-client=100&TestRun=X",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet('{{supplier}}')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "100"
+                },
+                {
+                  "key": "TestRun",
+                  "value": "X"
+                }
+              ]
+            },
+            "description": "Chỉ đổi các ô truyền vào; ô trống giữ nguyên. Thiếu dữ liệu công ty / mua hàng -> tự mở 1000/1000."
+          }
+        },
+        {
+          "name": "Đổi vendor - lưu thật (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name1\": \"TÊN MỚI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet('{{supplier}}')?sap-client=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet('{{supplier}}')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đổi vendor qua POST (có Supplier)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Supplier\": \"{{supplier}}\",\n  \"City\": \"Da Nang\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client=100&TestRun=X",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "100"
+                },
+                {
+                  "key": "TestRun",
+                  "value": "X"
+                }
+              ]
+            },
+            "description": "POST có Supplier = cập nhật NCC đó."
+          }
         }
       ]
     },

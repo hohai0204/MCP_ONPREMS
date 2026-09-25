@@ -89,7 +89,7 @@
         </ReferentialConstraint>
       </Association>
       <EntityContainer Name="ZCTD_CORE_INT_SRV_Entities" m:IsDefaultEntityContainer="true" sap:supported-formats="atom json xlsx">
-        <EntitySet Name="VendorSet" EntityType="ZCTD_CORE_INT_SRV.Vendor" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
+        <EntitySet Name="VendorSet" EntityType="ZCTD_CORE_INT_SRV.Vendor" sap:creatable="true" sap:updatable="true" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
         <EntitySet Name="PurchaseReqSet" EntityType="ZCTD_CORE_INT_SRV.PurchaseReq" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
         <EntitySet Name="PurchaseReqItemSet" EntityType="ZCTD_CORE_INT_SRV.PurchaseReqItem" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
         <AssociationSet Name="PurchaseReqToItemsSet" Association="ZCTD_CORE_INT_SRV.PurchaseReqToItems" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">

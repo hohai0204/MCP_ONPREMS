@@ -4,7 +4,7 @@
 
 Postman: http://localhost:8765/sap/opu/odata/sap/ZCTD_PO_INFO_SRV/POJsonSet('4100032903')/$value?sap-client=360
 
-- GET cho mọi client; POST chỉ cho sap-client=100 (profile ghi) - ở 360 bị chặn
+- GET cho mọi client; POST/PUT chỉ cho sap-client=100 (profile ghi) - ở 360 bị chặn
   vì sẽ tạo dữ liệu thật. Chỉ nghe trên 127.0.0.1.
 - sap-client=100 -> profile s4d-100; sap-client=360 -> profile s4d-360 (profile read-only:
   cổng ghi chỉ mở trong tiến trình này để gọi FM đọc ZCTD_FM_GW_TEST, file profile không đổi).
@@ -54,6 +54,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self._forward("POST")
 
+    def do_PUT(self):
+        self._forward("PUT")
+
     def _forward(self, method: str):
         parts = urlsplit(self.path)
         query = parse_qsl(parts.query, keep_blank_values=True)
@@ -62,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
         if not profile:
             return self._send(400, "text/plain; charset=utf-8", f"sap-client {client} chưa cấu hình (dùng 100 hoặc 360)")
         if method != "GET" and client != "100":
-            return self._send(405, "text/plain; charset=utf-8", "POST chỉ được phép với sap-client=100")
+            return self._send(405, "text/plain; charset=utf-8", f"{method} chỉ được phép với sap-client=100")
         body = ""
         if method != "GET":
             body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode("utf-8")
@@ -77,9 +80,9 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{client} {method} {uri} -> {r.get('EV_STATUS_CODE')}", flush=True)
 
     def _refuse(self):
-        self._send(405, "text/plain; charset=utf-8", "Cầu nối chỉ hỗ trợ GET và POST")
+        self._send(405, "text/plain; charset=utf-8", "Cầu nối chỉ hỗ trợ GET, POST và PUT")
 
-    do_PUT = do_PATCH = do_DELETE = do_MERGE = _refuse
+    do_PATCH = do_DELETE = do_MERGE = _refuse
 
     def _send(self, code: int, ctype: str, body: str):
         data = body.encode("utf-8")
