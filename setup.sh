@@ -317,8 +317,18 @@ fi
 step "8/9" "Registering MCP server(s) with Claude Code ..."
 SERVER="$MCP/server.py"
 REGISTERED=()
+# .mcp.json launches profile servers via scripts/mcp_launch.py (portable, no
+# absolute paths). Registering again would shadow it in local scope and cause a
+# "Conflicting scopes" warning, so only register when .mcp.json does not cover
+# the server or the SDK lives outside the default folder (needs SAPNWRFC_HOME).
+mcp_json_has() { grep -q "\"$1\"" "$ROOT/.mcp.json" 2>/dev/null; }
 register() { # register <server-name> [profile]
   local srv="$1" prof="${2:-}"
+  if mcp_json_has "$srv" && { [ "$SDK_OK" != "1" ] || [ "$SDK" = "$MCP/vendor/nwrfcsdk-macos" ]; }; then
+    ok "Covered by .mcp.json (scripts/mcp_launch.py): $srv - no local registration needed"
+    REGISTERED+=("$srv")
+    return
+  fi
   claude mcp remove "$srv" >/dev/null 2>&1 || true
   local envargs=()
   [ "$SDK_OK" = "1" ] && envargs=(-e "SAPNWRFC_HOME=$SDK")

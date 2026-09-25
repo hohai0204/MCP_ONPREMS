@@ -13,6 +13,10 @@
           {
             "type": "command",
             "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\scripts\\hooks\\guard-sap-writes.ps1\""
+          },
+          {
+            "type": "command",
+            "command": "python3 scripts/hooks/guard_sap_writes.py"
           }
         ]
       }

@@ -12,7 +12,7 @@ profile as MCP server `sap-<name>`.
 | Profile | System | Role | Write policy | Verified |
 | --- | --- | --- | --- | --- |
 | `s4d-360` | S/4HANA S4D (kernel 781, release 755, HANA), host <sap-app-host> (sysnr 01), client 360, via SAProuter <saprouter-host>:3299 (giá trị thật: mcp/profiles/*.env) | Development (read) | `SAP_ALLOW_WRITE=false` — reads only | sap_ping verified live 2026-09-21 |
-| `s4d-100` | Same S4D system as `s4d-360`, client 100, via same SAProuter | Development (write) | `SAP_ALLOW_WRITE=true` — designated write target; allowlisted as `sap-s4d-100` in `scripts/hooks/guard-sap-writes.ps1` | sap_ping verified live 2026-09-21 |
+| `s4d-100` | Same S4D system as `s4d-360`, client 100, via same SAProuter | Development (write) | `SAP_ALLOW_WRITE=true` — designated write target; allowlisted as `sap-s4d-100` in `scripts/hooks/guard-sap-writes.ps1` (Windows) / `scripts/hooks/guard_sap_writes.py` (macOS/Linux)` | sap_ping verified live 2026-09-21 |
 
 Add a row here whenever a new `profiles/<name>.env` is created. QA/PROD
 profiles must keep `SAP_ALLOW_WRITE=false`.
@@ -20,7 +20,7 @@ profiles must keep `SAP_ALLOW_WRITE=false`.
 ## Safety policy (applies to every profile)
 
 - **Client-side write guard (hook)**: `.claude/settings.json` runs
-  `scripts/hooks/guard-sap-writes.ps1` before every SAP write tool call and
+  `scripts/hooks/guard-sap-writes.ps1` (Windows) / `scripts/hooks/guard_sap_writes.py` (macOS/Linux)` before every SAP write tool call and
   blocks any MCP server not in the script's `$WritableServers` allowlist
   (currently `sap-s4d-360`). When adding a QA/PROD profile, writes are blocked
   by default — do NOT add those servers to the allowlist.

@@ -44,7 +44,7 @@ verdict. Do not fix anything in this skill — proposed fixes go through
 7. **Client tooling** — local checks (no SAP): `node --version` available
    (else abaplint step degrades to skipped), `abaplint.jsonc` +
    `scripts/lint-abap.ps1` present, write-guard hook registered in
-   `.claude/settings.json` (PreToolUse → `scripts/hooks/guard-sap-writes.ps1`)
+   `.claude/settings.json` (PreToolUse → `scripts/hooks/guard-sap-writes.ps1` (Windows) / `scripts/hooks/guard_sap_writes.py` (macOS/Linux)`)
    and its `$WritableServers` allowlist matches the write policy in
    `docs/product/sap-systems.md`.
 

@@ -176,11 +176,26 @@ Differences from Windows:
   SDK (needs Xcode Command Line Tools: `xcode-select --install`). Python 3.12
   is recommended (`brew install python@3.12`).
 * Dependencies live in a project-local `.venv` (Homebrew Python refuses global
-  `pip install`). The MCP servers are registered with that interpreter and
-  `SAPNWRFC_HOME` as an env var.
+  `pip install`). The MCP servers come from the checked-in `.mcp.json`
+  (`python3 scripts/mcp_launch.py <profile>`), which picks the venv and the
+  per-OS SDK itself; `setup.sh` only registers a server locally when the SDK
+  is outside `mcp/vendor/nwrfcsdk-macos`.
 * No VC++ runtime step; verification uses `scripts/mcp_probe.py` directly
   (there is no `check-mcp.sh`). The Harness step needs a macOS `harness-cli`
   in `scripts/bin/` — otherwise it warns, or pass `--skip-harness`.
+
+## One repo, mixed macOS + Windows machines
+
+Windows keeps its original path (unchanged, known-good): `setup.ps1` registers
+the servers locally with absolute paths, and the write-guard runs as
+`scripts/hooks/guard-sap-writes.ps1`. macOS uses the OS-neutral pieces:
+`.mcp.json` (`python3 scripts/mcp_launch.py <profile>`) and
+`scripts/hooks/guard_sap_writes.py`. Both hook entries are registered in
+`.claude/settings.json`; each one fails harmlessly on the other OS (the blocking
+exit code 2 only comes from the guard that actually runs). On Windows a local
+registration overrides `.mcp.json` and Claude may print a "Conflicting scopes"
+notice - harmless. Per-machine files stay gitignored: `.venv`, SDK,
+`mcp/profiles/*.env`. **The macOS-neutral path has not been run on Windows yet.**
 
 ## Quick install on a new Windows machine
 

@@ -5,20 +5,12 @@
       "url": "https://mcp-abap.marianzeis.de/mcp"
     },
     "sap-s4d-360": {
-      "command": "C:\\Users\\admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-      "args": [
-        "D:\\MCP_SAP_PRIVATE\\MCP_SAP_PRIVATE\\mcp\\server.py",
-        "--profile",
-        "s4d-360"
-      ]
+      "command": "python3",
+      "args": ["scripts/mcp_launch.py", "s4d-360"]
     },
     "sap-s4d-100": {
-      "command": "C:\\Users\\admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-      "args": [
-        "D:\\MCP_SAP_PRIVATE\\MCP_SAP_PRIVATE\\mcp\\server.py",
-        "--profile",
-        "s4d-100"
-      ]
+      "command": "python3",
+      "args": ["scripts/mcp_launch.py", "s4d-100"]
     }
   }
 }
