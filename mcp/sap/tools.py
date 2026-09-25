@@ -678,7 +678,7 @@ _DISPATCH_READ_ACTIONS = {
 }
 _DISPATCH_WRITE_ACTIONS = {
     "DYNPRO_INSERT", "DYNPRO_DELETE", "CUA_WRITE", "CUA_DELETE",
-    "ACTIVATE",
+    "ACTIVATE", "MOVE_OBJECTS",
 }
 
 # Text elements have their own dedicated FM (ZMCP_ADT_TEXTPOOL), which supports
@@ -700,11 +700,12 @@ def adt_dispatch(action: str, params: dict | None = None) -> dict:
     )
     subrc = res.get("EV_SUBRC", 0)
     message = res.get("EV_MESSAGE", "")
-    if subrc != 0:
-        raise SapConnectionError(
-            f"{_DISPATCH_FM} action {act} failed (subrc={subrc}): {message}"
-        )
     raw = res.get("EV_RESULT", "")
+    if subrc != 0:
+        detail = f" | result: {raw[:1500]}" if raw and raw != '{"activated":false}' else ""
+        raise SapConnectionError(
+            f"{_DISPATCH_FM} action {act} failed (subrc={subrc}): {message}{detail}"
+        )
     try:
         result = json.loads(raw) if raw else None
     except ValueError:
@@ -748,6 +749,28 @@ def activate(objects: list[dict]) -> dict:
     CLAS=class, FUGR/FUNC=function, DYNP=screen, CUAD=gui status, DDLS=cds.
     """
     return adt_dispatch("ACTIVATE", {"objects": objects})
+
+
+def move_objects(objects: list[dict], package: str, transport: str) -> dict:
+    """Move repository objects to a real package and record them in a transport,
+    without dialogs. Requires SAP_ALLOW_WRITE=true (DEV systems only).
+
+    `objects` is a list of {"type": <R3TR type>, "name": <obj>}, e.g.
+    [{"type":"CLAS","name":"ZCL_FOO"},{"type":"IWSV","name":"ZFOO_SRV"}]. IWMO/IWSV
+    names have a padded version suffix; a unique prefix is enough. `transport` is
+    the request (or task) that must be modifiable; objects land in the caller's
+    task. `package` must not be $TMP. Uses ZMCP_ADT_DISPATCH MOVE_OBJECTS.
+    """
+    if not (package or "").strip() or package.strip().upper() == "$TMP":
+        raise SapConnectionError("move_objects needs a real target package, not $TMP.")
+    if not (transport or "").strip():
+        raise SapConnectionError("move_objects needs a transport request.")
+    _require_write()
+    _check_devclass_allowed(package)
+    return adt_dispatch(
+        "MOVE_OBJECTS",
+        {"objects": objects, "package": package.upper(), "transport": transport.upper()},
+    )
 
 
 def read_cds(name: str, state: str = "A") -> dict:

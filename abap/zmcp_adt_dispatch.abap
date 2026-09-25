@@ -84,6 +84,10 @@ FUNCTION zmcp_adt_dispatch.
           PERFORM program_write USING iv_params
                                 CHANGING ev_subrc ev_message ev_result.
 
+        WHEN 'MOVE_OBJECTS'.
+          PERFORM move_objects USING iv_params
+                               CHANGING ev_subrc ev_message ev_result.
+
         WHEN 'READ_PROGRAM'.
           PERFORM read_program_src USING iv_params
                                    CHANGING ev_subrc ev_message ev_result.
@@ -626,6 +630,262 @@ FORM activate_objs USING iv_params TYPE string
   ELSE.
     ev_message = |Activation failed (sy-subrc={ sy-subrc })|.
     ev_result  = '{"activated":false}'.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& FORM MOVE_OBJECTS   (write -> gated by SAP_ALLOW_WRITE on bridge)
+*&  Move repository objects to another package and record them in a
+*&  transport, without any dialog (the SE80 "change package assignment"
+*&  popups die over RFC with SAPLSTRD 0300).
+*&  params: { "objects": [ {"type":"CLAS","name":"ZCL_FOO"},
+*&                          {"type":"IWSV","name":"ZFOO_SRV"} ],
+*&            "package": "ZMY_PKG", "transport": "S4DK900001" }
+*&  TADIR: TR_TADIR_INTERFACE, then RS_CORR_INSERT into the caller's
+*&  modifiable TASK ("transport" may be the request - the caller's task in it
+*&  is used - or the task itself; TR_RECORD_OBJ_CHANGE_TO_REQ would record
+*&  into the request header instead). Names are matched exactly
+*&  first, then as a unique prefix (IWMO/IWSV names carry a padded version
+*&  suffix, e.g. "ZFOO_MDL<pad>0001"). Target package must not be $TMP.
+*&  result: { "results": [ {"type","name","status","message"} ] }
+*&---------------------------------------------------------------------*
+FORM move_objects USING iv_params TYPE string
+                  CHANGING ev_subrc TYPE i
+                           ev_message TYPE string
+                           ev_result TYPE string.
+
+  TYPES: BEGIN OF ty_obj,
+           type TYPE string,
+           name TYPE string,
+         END OF ty_obj,
+         BEGIN OF ty_res,
+           type    TYPE string,
+           name    TYPE string,
+           status  TYPE string,
+           message TYPE string,
+         END OF ty_res.
+
+  DATA: BEGIN OF ls_in,
+          objects   TYPE STANDARD TABLE OF ty_obj WITH DEFAULT KEY,
+          package   TYPE string,
+          transport TYPE string,
+        END OF ls_in.
+  DATA: BEGIN OF ls_out,
+          results TYPE STANDARD TABLE OF ty_res WITH DEFAULT KEY,
+        END OF ls_out.
+  DATA: lv_package TYPE devclass,
+        lv_request TYPE trkorr,
+        lv_type    TYPE trobjtype,
+        lv_name    TYPE tadir-obj_name,
+        lv_pattern TYPE tadir-obj_name,
+        lv_srcsys  TYPE tadir-srcsystem,
+        lv_text    TYPE string,
+        lt_found   TYPE STANDARD TABLE OF tadir-obj_name WITH DEFAULT KEY,
+        lv_task    TYPE trkorr,
+        lv_req_of_task TYPE trkorr,
+        ls_res     TYPE ty_res,
+        lv_failed  TYPE i.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params
+                             CHANGING  data = ls_in ).
+
+  lv_package = to_upper( ls_in-package ).
+  lv_request = to_upper( ls_in-transport ).
+  lv_srcsys  = sy-sysid.
+
+  IF lv_package IS INITIAL OR lv_package = '$TMP' OR lv_request IS INITIAL.
+    ev_subrc = 4.
+    ev_message = 'package (not $TMP) and transport are required'.
+    RETURN.
+  ENDIF.
+  SELECT SINGLE devclass FROM tdevc WHERE devclass = @lv_package INTO @DATA(lv_pkg_chk).
+  IF sy-subrc <> 0.
+    ev_subrc = 4.
+    ev_message = |Package { lv_package } does not exist|.
+    RETURN.
+  ENDIF.
+  SELECT SINGLE trstatus, strkorr FROM e070 WHERE trkorr = @lv_request INTO @DATA(ls_tr).
+  IF sy-subrc <> 0 OR ls_tr-trstatus <> 'D'.
+    ev_subrc = 4.
+    ev_message = |Transport { lv_request } does not exist or is not modifiable|.
+    RETURN.
+  ENDIF.
+  IF ls_tr-strkorr IS NOT INITIAL.
+    lv_task = lv_request.   " a task was given
+    lv_req_of_task = ls_tr-strkorr.
+  ELSE.
+    lv_req_of_task = lv_request.
+    SELECT SINGLE trkorr FROM e070
+      WHERE strkorr = @lv_request AND as4user = @sy-uname AND trstatus = 'D'
+      INTO @lv_task.
+    IF sy-subrc <> 0.
+      ev_subrc = 4.
+      ev_message = |Request { lv_request } has no modifiable task of user { sy-uname }|.
+      RETURN.
+    ENDIF.
+  ENDIF.
+
+  LOOP AT ls_in-objects INTO DATA(ls_req).
+    CLEAR: ls_res, lt_found.
+    ls_res-type = to_upper( ls_req-type ).
+    ls_res-name = to_upper( ls_req-name ).
+    lv_type = ls_res-type.
+    lv_name = ls_res-name.
+
+    " exact name first, then a unique prefix
+    SELECT obj_name FROM tadir
+      WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
+      INTO TABLE @lt_found.
+    IF lt_found IS INITIAL.
+      lv_pattern = |{ ls_res-name }%|.
+      SELECT obj_name FROM tadir
+        WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name LIKE @lv_pattern
+        INTO TABLE @lt_found.
+    ENDIF.
+    IF lines( lt_found ) <> 1.
+      ls_res-status  = 'ERROR'.
+      ls_res-message = |{ lines( lt_found ) } TADIR entries match, expected exactly 1|.
+      APPEND ls_res TO ls_out-results.
+      lv_failed = lv_failed + 1.
+      CONTINUE.
+    ENDIF.
+    lv_name = lt_found[ 1 ].
+
+    SELECT SINGLE devclass FROM tadir
+      WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
+      INTO @DATA(lv_devclass).
+
+    IF lv_devclass <> lv_package.
+      CALL FUNCTION 'TR_TADIR_INTERFACE'
+        EXPORTING
+          wi_test_modus       = ' '
+          wi_tadir_pgmid      = 'R3TR'
+          wi_tadir_object     = lv_type
+          wi_tadir_obj_name   = lv_name
+          wi_tadir_author     = sy-uname
+          wi_tadir_devclass   = lv_package
+          wi_tadir_masterlang = sy-langu
+          wi_tadir_srcsystem  = lv_srcsys
+        EXCEPTIONS
+          OTHERS              = 1.
+      IF sy-subrc <> 0.
+        MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+          WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_text.
+        ls_res-status  = 'ERROR'.
+        ls_res-message = |TADIR change failed: { lv_text }|.
+        APPEND ls_res TO ls_out-results.
+        lv_failed = lv_failed + 1.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+
+    SELECT SINGLE trkorr FROM e071
+      WHERE trkorr = @lv_task AND pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
+      INTO @DATA(lv_have).
+    IF sy-subrc = 0.
+      ls_res-status  = 'MOVED'.
+      ls_res-message = |{ lv_devclass } -> { lv_package }, already in task { lv_task }|.
+      APPEND ls_res TO ls_out-results.
+      CONTINUE.
+    ENDIF.
+
+    " An object recorded straight into the request header (an earlier bridge
+    " version did this) is taken out first, else it stays there and never
+    " reaches the task.
+    SELECT SINGLE trkorr FROM e071
+      WHERE trkorr = @lv_req_of_task AND pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
+      INTO @DATA(lv_in_req).
+    IF sy-subrc = 0.
+      PERFORM drop_from_request USING lv_req_of_task lv_type lv_name
+                                CHANGING lv_text.
+      IF lv_text IS NOT INITIAL.
+        ls_res-status  = 'ERROR'.
+        ls_res-message = |Could not take { ls_res-name } out of request { lv_req_of_task }: { lv_text }|.
+        APPEND ls_res TO ls_out-results.
+        lv_failed = lv_failed + 1.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+
+    " RS_CORR_INSERT with a task number and no dialog. (TRINT_APPEND_COMM
+    " returned success but persisted nothing; TR_RECORD_OBJ_CHANGE_TO_REQ only
+    " accepts a request and records into the request header.)
+    CALL FUNCTION 'RS_CORR_INSERT'
+      EXPORTING
+        object                   = lv_name
+        object_class             = lv_type
+        mode                     = 'I'
+        global_lock              = 'X'
+        devclass                 = lv_package
+        korrnum                  = lv_req_of_task
+        suppress_dialog          = 'X'
+        author                   = sy-uname
+        master_language          = sy-langu
+      EXCEPTIONS
+        cancelled                = 1
+        permission_failure       = 2
+        unknown_objectclass      = 3
+        OTHERS                   = 4.
+    IF sy-subrc = 0.
+      ls_res-status  = 'MOVED'.
+      ls_res-message = |{ lv_devclass } -> { lv_package }, recorded in task { lv_task }|.
+    ELSE.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_text.
+      ls_res-status  = 'ERROR'.
+      ls_res-message = |Package changed but transport entry failed (rc { sy-subrc }): { lv_text }|.
+      lv_failed = lv_failed + 1.
+    ENDIF.
+    APPEND ls_res TO ls_out-results.
+  ENDLOOP.
+
+  ev_result = /ui2/cl_json=>serialize( data = ls_out ).
+  IF lv_failed > 0.
+    ev_subrc = 4.
+    ev_message = |{ lv_failed } of { lines( ls_in-objects ) } object(s) failed - see result|.
+  ELSE.
+    ev_message = |{ lines( ls_in-objects ) } object(s) processed|.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& FORM DROP_FROM_REQUEST - remove one object entry from a request header
+*&  (TR_DELETE_COMM_OBJECT_KEYS, no dialog). cv_error stays empty on success.
+*&---------------------------------------------------------------------*
+FORM drop_from_request USING iv_request TYPE trkorr
+                             iv_type    TYPE trobjtype
+                             iv_name    TYPE tadir-obj_name
+                       CHANGING cv_error TYPE string.
+
+  DATA: ls_request TYPE trwbo_request,
+        ls_e071    TYPE e071.
+
+  CLEAR cv_error.
+  SELECT SINGLE * FROM e070 WHERE trkorr = @iv_request INTO CORRESPONDING FIELDS OF @ls_request-h.
+  SELECT * FROM e071 WHERE trkorr = @iv_request INTO CORRESPONDING FIELDS OF TABLE @ls_request-objects.
+  SELECT * FROM e071k WHERE trkorr = @iv_request INTO CORRESPONDING FIELDS OF TABLE @ls_request-keys.
+  READ TABLE ls_request-objects INTO ls_e071
+    WITH KEY pgmid = 'R3TR' object = iv_type obj_name = iv_name.
+  IF sy-subrc <> 0.
+    RETURN.
+  ENDIF.
+
+  CALL FUNCTION 'TR_DELETE_COMM_OBJECT_KEYS'
+    EXPORTING
+      is_e071_delete = ls_e071
+      iv_dialog_flag = ' '
+    CHANGING
+      cs_request     = ls_request
+    EXCEPTIONS
+      OTHERS         = 1.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO cv_error.
+    IF cv_error IS INITIAL.
+      cv_error = |TR_DELETE_COMM_OBJECT_KEYS rc { sy-subrc }|.
+    ENDIF.
   ENDIF.
 
 ENDFORM.

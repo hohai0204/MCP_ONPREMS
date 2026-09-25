@@ -231,6 +231,18 @@ def sap_activate(objects: list[dict]) -> dict:
 
 
 @mcp.tool()
+def sap_move_objects(objects: list[dict], package: str, transport: str) -> dict:
+    """Move repository objects (e.g. classes/SEGW objects sitting in $TMP) to a
+    real package and record them in a transport, with no dialogs. Requires
+    SAP_ALLOW_WRITE=true. Does not release or import anything.
+    objects: list of {"type": <R3TR type>, "name": <obj>}, e.g.
+    [{"type":"CLAS","name":"ZCL_FOO_DPC"},{"type":"IWSV","name":"ZFOO_SRV"}].
+    IWMO/IWSV names carry a padded version suffix - a unique prefix is enough.
+    package: target package (not $TMP). transport: modifiable request or task."""
+    return _safe(tools.move_objects, objects, package, transport)
+
+
+@mcp.tool()
 def sap_textpool_write(
     program: str,
     textpool: list[dict],

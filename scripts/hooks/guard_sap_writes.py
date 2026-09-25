@@ -20,7 +20,7 @@ WRITABLE_SERVERS = ["sap-s4d-100"]
 
 WRITE_TOOLS = (
     "sap_write_program|sap_activate|sap_run_rfc|sap_adt_dispatch|"
-    "sap_textpool_write|sap_write_ddic|sap_delete_ddic|sap_activate_ddic"
+    "sap_textpool_write|sap_write_ddic|sap_delete_ddic|sap_activate_ddic|sap_move_objects"
 )
 
 

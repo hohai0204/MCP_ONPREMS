@@ -83,6 +83,7 @@ class HookAllowlist(unittest.TestCase):
     def test_other_write_tools_never_allowlisted(self):
         self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_write_program", "", ["*"]), 2)
         self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_activate", "", ["*"]), 2)
+        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_move_objects", "", ["*"]), 2)
 
     def test_writable_server_unchanged(self):
         self.assertEqual(self.run_hook("mcp__sap-s4d-100__sap_run_rfc", "ANY_FM", []), 0)
