@@ -21,7 +21,8 @@ FUNCTION ZCTD_FM_CREATE_CONT.
 *   A. Kiểm tra đầu vào       (CHECK_PARAMETER/CHECK_INPUT/CHECK_AUTHORITY)
 *   B. Điền giá trị mặc định  (DATA_HEADER_DISPLAY/GET_ITEM/CALCULATE_CONDITION)
 *   C. Kiểm tra trước khi lưu (CHECK_PLHD_SAVE/CHECK_SAVE)
-*   D. Lưu chứng từ           (POST_PO/UPDATE_PO_ZCONT/SAVE_TABLE_ZCONT)
+*   D. Lưu chứng từ           (POST_PO + dữ liệu hợp đồng trong CÙNG một LUW:
+*                              update module ZCTD_FM_CONT_SAVE_UPD, lỗi -> hủy cả PO)
 * Mã nhập ở dạng nội bộ (NCC/vật tư có số 0 đầu, dự án/WBS không dấu).
 * IT_COND: STTIT rỗng = điều kiện header (tab Condition), có STTIT =
 *          điều kiện bổ sung của dòng.
@@ -72,9 +73,12 @@ FUNCTION ZCTD_FM_CREATE_CONT.
     RETURN.
   ENDIF.
 
+  " PO + hợp đồng lưu trong một LUW: lỗi bất kỳ phần nào thì hủy toàn bộ
   ls_doc-head-ebeln = lv_ebeln.
-  PERFORM cont_update_ekko_texts USING ls_doc CHANGING et_return.
-  PERFORM cont_save_tables       CHANGING ls_doc et_return.
+  PERFORM cont_save_all CHANGING ls_doc lv_ebeln et_return.
+  IF lv_ebeln IS INITIAL.
+    RETURN.
+  ENDIF.
 
   ev_ebeln  = lv_ebeln.
   es_header = ls_doc-head.

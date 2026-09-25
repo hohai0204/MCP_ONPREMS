@@ -8,8 +8,8 @@
 *   B. Điền giá trị mặc định       cont_default_*, cont_cond_*
 *   C. Kiểm tra trước khi lưu      cont_check_*, cont_chk_item_*
 *   D. Lưu chứng từ                cont_prepare_header, cont_post_po,
-*                                  cont_bapi_*, cont_update_ekko_texts,
-*                                  cont_save_tables
+*                                  cont_bapi_*, cont_save_all (PO + hợp đồng
+*                                  một LUW qua update module ZCTD_FM_CONT_SAVE_UPD)
 *----------------------------------------------------------------------*
 
 *======================================================================*
@@ -1554,9 +1554,7 @@ FORM cont_post_po USING    is_doc     TYPE gty_cont_doc
     RETURN.
   ENDIF.
 
-  CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
-    EXPORTING
-      wait = abap_true.
+  " chưa COMMIT: PO được lưu cùng dữ liệu hợp đồng trong CONT_SAVE_ALL (một LUW)
 ENDFORM.
 
 FORM cont_bapi_header USING    is_doc  TYPE gty_cont_doc
@@ -1800,53 +1798,55 @@ FORM cont_bapi_conditions USING    is_doc  TYPE gty_cont_doc
 ENDFORM.
 
 * Số HĐ / số phụ lục / loại TK ngân hàng trên EKKO + text header F01..F99
-FORM cont_update_ekko_texts USING    is_doc    TYPE gty_cont_doc
-                            CHANGING ct_return TYPE bapiret2_t.
-  TYPES: BEGIN OF lty_text,
-           tdid TYPE thead-tdid,
-           text TYPE char255,
-         END OF lty_text.
-  DATA lt_text TYPE STANDARD TABLE OF lty_text WITH EMPTY KEY.
+* Lưu PO + hợp đồng trong MỘT LUW: dữ liệu hợp đồng ghi bằng update module
+* ZCTD_FM_CONT_SAVE_UPD (IN UPDATE TASK) rồi COMMIT một lần. Bất kỳ phần nào
+* lỗi -> SAP hủy cả PO lẫn các bảng ZTB_CONT_* / ZTB_COND_ITEM.
+FORM cont_save_all CHANGING cs_doc    TYPE gty_cont_doc
+                            cv_ebeln  TYPE ebeln
+                            ct_return TYPE bapiret2_t.
+  DATA: lt_cond_db TYPE gty_t_cont_cond_in,
+        ls_commit  TYPE bapiret2.
 
-  UPDATE ekko SET zzhopdong = @is_doc-head-zcont,
-                  zzphuluc  = @is_doc-head-zcont_an,
-                  zzbvtyp   = @is_doc-head-zzbvtyp
-    WHERE ebeln = @is_doc-head-ebeln.
-  IF sy-subrc = 0.
-    COMMIT WORK AND WAIT.
-  ELSE.
-    ROLLBACK WORK.
-    APPEND VALUE #( type = 'W'
-                    message = |Đơn mua hàng { is_doc-head-ebeln } đã tạo nhưng chưa cập nhật được số hợp đồng, số phụ lục và loại tài khoản ngân hàng.| )
+  PERFORM cont_build_save_data CHANGING cs_doc lt_cond_db.
+
+  CALL FUNCTION 'ZCTD_FM_CONT_SAVE_UPD' IN UPDATE TASK
+    EXPORTING
+      is_header  = cs_doc-head
+    TABLES
+      it_item    = cs_doc-t_item
+      it_partner = cs_doc-t_partner
+      it_cond    = lt_cond_db.
+
+  CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+    EXPORTING
+      wait   = abap_true
+    IMPORTING
+      return = ls_commit.
+
+  " cập nhật lỗi -> SAP đã hủy toàn bộ; kiểm tra lại cho chắc PO + hợp đồng cùng tồn tại
+  SELECT SINGLE ebeln FROM ekko WHERE ebeln = @cv_ebeln INTO @DATA(lv_po).
+  SELECT SINGLE ebeln FROM ztb_cont_header WHERE ebeln = @cv_ebeln INTO @DATA(lv_cont).
+  IF ls_commit-type CA 'EA' OR lv_po IS INITIAL OR lv_cont IS INITIAL.
+    IF ls_commit IS NOT INITIAL.
+      APPEND ls_commit TO ct_return.
+    ENDIF.
+    APPEND VALUE #( type = 'E'
+                    message = |Không lưu được đơn mua hàng và hợp đồng, toàn bộ dữ liệu đã được hủy. Vui lòng báo bộ phận IT (lỗi cập nhật SM13).| )
       TO ct_return.
+    CLEAR cv_ebeln.
+    RETURN.
   ENDIF.
 
-  lt_text = VALUE #( ( tdid = 'F01' text = is_doc-head-zekkof01 )
-                     ( tdid = 'F02' text = is_doc-head-zekkof02 )
-                     ( tdid = 'F03' text = is_doc-head-zekkof03 )
-                     ( tdid = 'F04' text = is_doc-head-zekkof04 )
-                     ( tdid = 'F05' text = is_doc-head-zekkof05 )
-                     ( tdid = 'F06' text = is_doc-head-zekkof06 )
-                     ( tdid = 'F98' text = is_doc-head-zekkof07 )
-                     ( tdid = 'F99' text = is_doc-head-zekkof08 ) ).
-  DATA(lv_tdname) = CONV thead-tdname( is_doc-head-ebeln ).
-  LOOP AT lt_text INTO DATA(ls_text).
-    CALL FUNCTION 'ZCORE_FM_SAVE_TEXT'
-      EXPORTING
-        i_tdid     = ls_text-tdid
-        i_tdobject = 'EKKO'
-        i_tname    = lv_tdname
-        i_text     = ls_text-text.
-  ENDLOOP.
+  APPEND VALUE #( type = 'S' message_v1 = cv_ebeln
+                  message = |Đã tạo hợp đồng và đơn mua hàng { cv_ebeln } thành công.| ) TO ct_return.
 ENDFORM.
 
-* ZTB_CONT_HEADER / ZTB_CONT_ITEM / ZTB_CONT_HEADER1 / ZTB_COND_ITEM
-FORM cont_save_tables CHANGING cs_doc    TYPE gty_cont_doc
-                               ct_return TYPE bapiret2_t.
+* Chuẩn bị dữ liệu hợp đồng để ghi (chưa đụng DB): gán số PO, bỏ dòng
+* không có vật tư, đánh số điều kiện giá trong từng dòng.
+FORM cont_build_save_data CHANGING cs_doc     TYPE gty_cont_doc
+                                   ct_cond_db TYPE gty_t_cont_cond_in.
   DATA: lt_cond_all TYPE gty_t_cont_cond,
-        lt_cond_db  TYPE gty_t_cont_cond_in,
-        lv_line     TYPE zde_no,
-        lt_failed   TYPE string_table.
+        lv_line     TYPE zde_no.
 
   LOOP AT cs_doc-t_item ASSIGNING FIELD-SYMBOL(<ls_item>).
     <ls_item>-ebeln = cs_doc-head-ebeln.
@@ -1859,8 +1859,8 @@ FORM cont_save_tables CHANGING cs_doc    TYPE gty_cont_doc
   " điều kiện: header + dòng, đánh số thứ tự trong từng dòng
   lt_cond_all = cs_doc-t_cond_h.
   APPEND LINES OF cs_doc-t_cond_i TO lt_cond_all.
-  lt_cond_db = CORRESPONDING #( lt_cond_all ).
-  LOOP AT lt_cond_db ASSIGNING FIELD-SYMBOL(<ls_cond>).
+  ct_cond_db = CORRESPONDING #( lt_cond_all ).
+  LOOP AT ct_cond_db ASSIGNING FIELD-SYMBOL(<ls_cond>).
     <ls_cond>-mandt = sy-mandt.
     <ls_cond>-ebeln = cs_doc-head-ebeln.
     READ TABLE cs_doc-t_item INTO DATA(ls_item) WITH KEY sttit = <ls_cond>-sttit.
@@ -1869,43 +1869,12 @@ FORM cont_save_tables CHANGING cs_doc    TYPE gty_cont_doc
       <ls_cond>-txz01 = ls_item-txz01.
     ENDIF.
   ENDLOOP.
-  SORT lt_cond_db BY mandt ebeln sttit.
-  LOOP AT lt_cond_db ASSIGNING <ls_cond>.
+  SORT ct_cond_db BY mandt ebeln sttit.
+  LOOP AT ct_cond_db ASSIGNING <ls_cond>.
     lv_line = lv_line + 1.
     <ls_cond>-zcond_line = lv_line.
     AT END OF sttit.
       lv_line = 0.
     ENDAT.
   ENDLOOP.
-
-  MODIFY ztb_cont_header FROM cs_doc-head.
-  IF sy-subrc <> 0.
-    APPEND `thông tin chung` TO lt_failed.
-  ENDIF.
-  MODIFY ztb_cont_item FROM TABLE cs_doc-t_item.
-  IF sy-subrc <> 0.
-    APPEND `dòng hàng` TO lt_failed.
-  ENDIF.
-  IF cs_doc-t_partner IS NOT INITIAL.
-    MODIFY ztb_cont_header1 FROM TABLE cs_doc-t_partner.
-    IF sy-subrc <> 0.
-      APPEND `đối tác` TO lt_failed.
-    ENDIF.
-  ENDIF.
-  IF lt_cond_db IS NOT INITIAL.
-    MODIFY ztb_cond_item FROM TABLE lt_cond_db.
-    IF sy-subrc <> 0.
-      APPEND `điều kiện giá` TO lt_failed.
-    ENDIF.
-  ENDIF.
-  COMMIT WORK AND WAIT.
-
-  IF lt_failed IS NOT INITIAL.
-    APPEND VALUE #( type = 'E' message_v1 = cs_doc-head-ebeln
-                    message = |Đơn mua hàng { cs_doc-head-ebeln } đã tạo nhưng chưa lưu được { concat_lines_of( table = lt_failed sep = `, ` ) } của hợp đồng. Vui lòng báo bộ phận IT.| )
-      TO ct_return.
-  ELSE.
-    APPEND VALUE #( type = 'S' message_v1 = cs_doc-head-ebeln
-                    message = |Đã tạo hợp đồng và đơn mua hàng { cs_doc-head-ebeln } thành công.| ) TO ct_return.
-  ENDIF.
 ENDFORM.
