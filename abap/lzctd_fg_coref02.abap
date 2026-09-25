@@ -217,8 +217,8 @@ FORM bp_maintain USING    it_data     TYPE cvis_ei_extern_t
   SELECT SINGLE vendor FROM cvi_vend_link WHERE partner_guid = @lv_guid INTO @cv_supplier.
   APPEND VALUE #( type = 'S' message_v1 = cv_partner message_v2 = cv_supplier
                   message = COND #( WHEN iv_change = abap_true
-                                    THEN |Đã cập nhật nhà cung cấp { cv_supplier ALPHA = OUT } (BP { cv_partner ALPHA = OUT }).|
-                                    ELSE |Đã tạo nhà cung cấp { cv_supplier ALPHA = OUT } (BP { cv_partner ALPHA = OUT }) kèm dữ liệu công ty và mua hàng.| ) )
+                                    THEN |Đã cập nhật nhà cung cấp { condense( |{ cv_supplier ALPHA = OUT }| ) } (BP { condense( |{ cv_partner ALPHA = OUT }| ) }).|
+                                    ELSE |Đã tạo nhà cung cấp { condense( |{ cv_supplier ALPHA = OUT }| ) } (BP { condense( |{ cv_partner ALPHA = OUT }| ) }) kèm dữ liệu công ty và mua hàng.| ) )
     TO ct_return.
 ENDFORM.
 
