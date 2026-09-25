@@ -2,7 +2,8 @@
   "info": {
     "name": "ZCTD_CORE_INT_SRV - CTD Core integration",
     "description": "OData V2 tích hợp CTD Core. Gọi qua cầu nối cục bộ: python scripts/gw_local_proxy.py (GET client 100/360, POST chỉ client 100). Mỗi response có header correlation-id; mọi lần gọi ghi log vào ZCTD_T_API_LOG.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "54824e0b-0e07-4a90-b49d-5fdcbb134496"
   },
   "variable": [
     {
@@ -29,9 +30,20 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}"
-        },
-        "description": ""
+          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "$metadata"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            }
+          ]
+        }
       }
     },
     {
@@ -43,9 +55,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                },
+                {
+                  "key": "$inlinecount",
+                  "value": "allpages"
+                }
+              ]
+            }
           }
         },
         {
@@ -54,9 +89,24 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet('{{supplier}}')?sap-client={{client}}&$format=json"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet('{{supplier}}')?sap-client={{client}}&$format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet('{{supplier}}')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                }
+              ]
+            }
           }
         },
         {
@@ -65,9 +115,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=Country eq 'VN' and CreatedOn ge '20260101'&$top=50"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=Country eq 'VN' and CreatedOn ge '20260101'&$top=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "Country eq 'VN' and CreatedOn ge '20260101'"
+                },
+                {
+                  "key": "$top",
+                  "value": "50"
+                }
+              ]
+            }
           }
         },
         {
@@ -76,9 +149,36 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&Country=VN&AccountGroup=Z099,Z001&$top=50"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&Country=VN&AccountGroup=Z099,Z001&$top=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "Country",
+                  "value": "VN"
+                },
+                {
+                  "key": "AccountGroup",
+                  "value": "Z099,Z001"
+                },
+                {
+                  "key": "$top",
+                  "value": "50"
+                }
+              ]
+            }
           }
         },
         {
@@ -87,9 +187,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=substringof('XÂY DỰNG',Name1)&$top=20"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=substringof('XÂY DỰNG',Name1)&$top=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "substringof('XÂY DỰNG',Name1)"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                }
+              ]
+            }
           }
         },
         {
@@ -98,9 +221,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$skip=20"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$skip=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                },
+                {
+                  "key": "$skip",
+                  "value": "20"
+                }
+              ]
+            }
           }
         },
         {
@@ -122,7 +268,23 @@
               "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client=100&TestRun=X"
+              "raw": "{{baseUrl}}/VendorSet?sap-client=100&TestRun=X",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "100"
+                },
+                {
+                  "key": "TestRun",
+                  "value": "X"
+                }
+              ]
             },
             "description": "Chỉ kiểm tra, không lưu. Kết quả ở header sap-message."
           }
@@ -146,7 +308,19 @@
               "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/VendorSet?sap-client=100"
+              "raw": "{{baseUrl}}/VendorSet?sap-client=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "100"
+                }
+              ]
             },
             "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country."
           }
@@ -162,9 +336,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                },
+                {
+                  "key": "$inlinecount",
+                  "value": "allpages"
+                }
+              ]
+            }
           }
         },
         {
@@ -173,9 +370,24 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet('{{pr}}')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                }
+              ]
+            }
           }
         },
         {
@@ -184,9 +396,28 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json&$expand=Items"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json&$expand=Items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet('{{pr}}')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$expand",
+                  "value": "Items"
+                }
+              ]
+            }
           }
         },
         {
@@ -195,9 +426,25 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')/Items?sap-client={{client}}&$format=json"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')/Items?sap-client={{client}}&$format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet('{{pr}}')",
+                "Items"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                }
+              ]
+            }
           }
         },
         {
@@ -206,9 +453,24 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqItemSet(PRNumber='{{pr}}',Item='00010')?sap-client={{client}}&$format=json"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqItemSet(PRNumber='{{pr}}',Item='00010')?sap-client={{client}}&$format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqItemSet(PRNumber='{{pr}}',Item='00010')"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                }
+              ]
+            }
           }
         },
         {
@@ -217,7 +479,39 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$filter=PRType eq 'ZPR2' and CreatedOn ge '20250101'&Plant=1100&$expand=Items&$top=20"
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$filter=PRType eq 'ZPR2' and CreatedOn ge '20250101'&Plant=1100&$expand=Items&$top=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "PRType eq 'ZPR2' and CreatedOn ge '20250101'"
+                },
+                {
+                  "key": "Plant",
+                  "value": "1100"
+                },
+                {
+                  "key": "$expand",
+                  "value": "Items"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                }
+              ]
             },
             "description": "Field của dòng (Plant, Material, PurchasingGroup, PurchasingOrg) không có trong PurchaseReq nên truyền bằng tham số URL; nhiều giá trị cách nhau dấu phẩy."
           }
@@ -228,9 +522,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&Material=10000037,10000038&$top=20"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&Material=10000037,10000038&$top=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "Material",
+                  "value": "10000037,10000038"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                }
+              ]
+            }
           }
         },
         {
@@ -239,9 +556,32 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/PurchaseReqItemSet?sap-client={{client}}&$format=json&$filter=Plant eq '2100'&$top=50"
-            },
-            "description": ""
+              "raw": "{{baseUrl}}/PurchaseReqItemSet?sap-client={{client}}&$format=json&$filter=Plant eq '2100'&$top=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "PurchaseReqItemSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "Plant eq '2100'"
+                },
+                {
+                  "key": "$top",
+                  "value": "50"
+                }
+              ]
+            }
           }
         }
       ]

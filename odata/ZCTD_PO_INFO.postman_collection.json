@@ -2,7 +2,8 @@
   "info": {
     "name": "ZCTD_PO_INFO_SRV",
     "description": "OData ZCTD_PO_INFO_SRV (SEGW). baseUrl mặc định = cầu nối cục bộ (chạy: python scripts/gw_local_proxy.py) khi máy không có đường HTTP tới SAP. Khi có VPN/mạng nội bộ đổi baseUrl thành http://<sap-host>:<icm-port>/sap/opu/odata/sap/ZCTD_PO_INFO_SRV và điền user/password.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "ad2978da-b61b-442d-bc2a-84a191810a89"
   },
   "auth": {
     "type": "basic",
@@ -48,7 +49,20 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/POJsonSet('{{po}}')/$value?sap-client={{client}}"
+          "raw": "{{baseUrl}}/POJsonSet('{{po}}')/$value?sap-client={{client}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POJsonSet('{{po}}')",
+            "$value"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            }
+          ]
         }
       }
     },
@@ -58,7 +72,24 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&top=20"
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&top=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POJsonSet('ALL')",
+            "$value"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            },
+            {
+              "key": "top",
+              "value": "20"
+            }
+          ]
         }
       }
     },
@@ -68,7 +99,40 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&DocumentDateFrom=20260801&DocumentDateTo=20260930&top=50&skip=0"
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&DocumentDateFrom=20260801&DocumentDateTo=20260930&top=50&skip=0",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POJsonSet('ALL')",
+            "$value"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            },
+            {
+              "key": "POType",
+              "value": "ZP01"
+            },
+            {
+              "key": "DocumentDateFrom",
+              "value": "20260801"
+            },
+            {
+              "key": "DocumentDateTo",
+              "value": "20260930"
+            },
+            {
+              "key": "top",
+              "value": "50"
+            },
+            {
+              "key": "skip",
+              "value": "0"
+            }
+          ]
         }
       }
     },
@@ -78,7 +142,36 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&MinItems=5&DocumentDateFrom=20260801&top=20"
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&MinItems=5&DocumentDateFrom=20260801&top=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POJsonSet('ALL')",
+            "$value"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            },
+            {
+              "key": "POType",
+              "value": "ZP01"
+            },
+            {
+              "key": "MinItems",
+              "value": "5"
+            },
+            {
+              "key": "DocumentDateFrom",
+              "value": "20260801"
+            },
+            {
+              "key": "top",
+              "value": "20"
+            }
+          ]
         }
       }
     },
@@ -93,7 +186,27 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/POHeaderSet('{{po}}')?$expand=Detail&$format=json&sap-client={{client}}"
+          "raw": "{{baseUrl}}/POHeaderSet('{{po}}')?$expand=Detail&$format=json&sap-client={{client}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POHeaderSet('{{po}}')"
+          ],
+          "query": [
+            {
+              "key": "$expand",
+              "value": "Detail"
+            },
+            {
+              "key": "$format",
+              "value": "json"
+            },
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            }
+          ]
         }
       }
     },
@@ -108,7 +221,39 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/POHeaderSet?$filter=POType eq 'ZP01'&$expand=Detail&$top=10&$inlinecount=allpages&$format=json&sap-client={{client}}"
+          "raw": "{{baseUrl}}/POHeaderSet?$filter=POType eq 'ZP01'&$expand=Detail&$top=10&$inlinecount=allpages&$format=json&sap-client={{client}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "POHeaderSet"
+          ],
+          "query": [
+            {
+              "key": "$filter",
+              "value": "POType eq 'ZP01'"
+            },
+            {
+              "key": "$expand",
+              "value": "Detail"
+            },
+            {
+              "key": "$top",
+              "value": "10"
+            },
+            {
+              "key": "$inlinecount",
+              "value": "allpages"
+            },
+            {
+              "key": "$format",
+              "value": "json"
+            },
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            }
+          ]
         }
       }
     },
@@ -118,7 +263,19 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}"
+          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "$metadata"
+          ],
+          "query": [
+            {
+              "key": "sap-client",
+              "value": "{{client}}"
+            }
+          ]
         }
       }
     }
