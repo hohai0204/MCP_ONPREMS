@@ -1,0 +1,334 @@
+{
+  "info": {
+    "name": "ZCTC_PO_CORE_SRV - PO header/item (CTD Core)",
+    "description": "OData V2 SEGW project ZCTC_PO_CORE (package ZCTD_CORE). Gọi qua cầu nối cục bộ: python scripts/gw_local_proxy.py (chỉ GET; sap-client 100 hoặc 360 - dữ liệu thật ở 360).\n\nLưu ý filter (đã kiểm tra 25/09/2026 trên client 360):\n- PoHeaderSet: không lọc = 10 PO mới nhất ($top/$skip để phân trang). Chỉ lấy PO có trong ZTB_CONT_HEADER.\n- Mọi filter chỉ so sánh bằng (eq) theo giá trị đầu tiên; ge/le/between bị coi như eq.\n- DocumentDate phải dạng 'YYYY-MM-DD'. Dạng 'YYYYMMDD' bị BỎ QUA (trả danh sách không lọc).\n- VendorCode phải đủ 10 số ('0000113489'); '113489' ra 0 dòng.\n- ProjectCode phải dạng nội bộ ('CN2424000000000'); 'CN24-24' ra 0 dòng; có thể trả trùng PO.\n- PoWbsItemSet bắt buộc $filter=PONumber eq '...'.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8765/sap/opu/odata/sap/ZCTC_PO_CORE_SRV"
+    },
+    {
+      "key": "client",
+      "value": "360"
+    },
+    {
+      "key": "po",
+      "value": "4100035143"
+    },
+    {
+      "key": "vendor",
+      "value": "0000113489"
+    },
+    {
+      "key": "contract",
+      "value": "CN24-24/CC/26/820"
+    }
+  ],
+  "item": [
+    {
+      "name": "$metadata",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}"
+        },
+        "description": ""
+      }
+    },
+    {
+      "name": "PoHeaderSet",
+      "item": [
+        {
+          "name": "10 PO mới nhất (mặc định)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Phân trang ($top/$skip)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$top=20&$skip=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Theo số PO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=PONumber eq '{{po}}'"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Theo số PO kèm dòng ($expand=ToItems)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=PONumber eq '{{po}}'&$expand=ToItems"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc loại PO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=POType eq 'ZP01'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc nhà cung cấp (10 số)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=VendorCode eq '{{vendor}}'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc công ty",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=CompanyCode eq '1000'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc số hợp đồng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=ContractNo eq '{{contract}}'"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc nhóm mua hàng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=PurchasingGroup eq '104'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc tổ chức mua hàng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=PurchasingOrganization eq '1000'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc ngày chứng từ (YYYY-MM-DD)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=DocumentDate eq '2026-08-01'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc dự án (mã nội bộ)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=ProjectCode eq 'CN2424000000000'&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Kết hợp loại PO + công ty",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoHeaderSet?sap-client={{client}}&$format=json&$filter=POType eq 'ZP01' and CompanyCode eq '1000'&$top=20"
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "PoWbsItemSet",
+      "item": [
+        {
+          "name": "Dòng của PO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoWbsItemSet?sap-client={{client}}&$format=json&$filter=PONumber eq '{{po}}'"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Thiếu PONumber (mong đợi 400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PoWbsItemSet?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "PurchaseOrderSet",
+      "item": [
+        {
+          "name": "PO theo key",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseOrderSet('{{po}}')?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "PO theo filter Ebeln",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseOrderSet?sap-client={{client}}&$format=json&$filter=Ebeln eq '{{po}}'"
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ]
+}
