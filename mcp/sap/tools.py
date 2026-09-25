@@ -208,8 +208,40 @@ def read_table(
 # ---------------------------------------------------------------------------
 # repository read
 # ---------------------------------------------------------------------------
-def read_program(program: str) -> dict:
-    """Read ABAP report/program source via RPY_PROGRAM_READ."""
+def read_program(program: str, state: str = "A") -> dict:
+    """Read ABAP report/program source.
+
+    state "A" (default) = active version, "I" = inactive version (saved, not yet
+    activated), "latest" = inactive if it exists, else active. Versions are read
+    with ZMCP_ADT_DISPATCH READ_PROGRAM. RPY_PROGRAM_READ is only the fallback for
+    "A" when the dispatcher lacks that action: it returns the caller's inactive
+    version when there is one, so it is not a reliable "active" read.
+    """
+    st = (state or "A").upper()
+    name = program.upper()
+
+    def _dispatch(ver: str) -> list[str] | None:
+        try:
+            res = adt_dispatch("READ_PROGRAM", {"name": name, "state": ver})
+        except SapConnectionError as exc:
+            if "no version in state" in str(exc):
+                return []
+            return None  # dispatcher not updated: caller falls back
+        return (res.get("result") or {}).get("LINES") or []
+
+    if st in ("I", "LATEST"):
+        lines = _dispatch("I")
+        if lines is None:
+            raise SapConnectionError(
+                "ZMCP_ADT_DISPATCH has no READ_PROGRAM action - reinstall abap/zmcp_adt_dispatch.abap"
+            )
+        if lines or st == "I":
+            return {"program": name, "state": "I", "line_count": len(lines),
+                    "source": "\n".join(lines)}
+    lines = _dispatch("A")
+    if lines is not None:
+        return {"program": name, "state": "A", "line_count": len(lines),
+                "source": "\n".join(lines)}
     res = get_client().call(
         "RPY_PROGRAM_READ",
         PROGRAM_NAME=program.upper(),
@@ -624,7 +656,7 @@ def where_used(name: str, max_rows: int = 100) -> dict:
 _DISPATCH_FM = "ZMCP_ADT_DISPATCH"
 _DISPATCH_READ_ACTIONS = {
     "DYNPRO_READ", "CUA_FETCH",
-    "SYNTAX_CHECK", "READ_DDLS",
+    "SYNTAX_CHECK", "READ_DDLS", "READ_PROGRAM",
     "RUN_UNIT_TESTS", "ATC_CHECK",
 }
 _DISPATCH_WRITE_ACTIONS = {
@@ -818,28 +850,66 @@ def _check_package_allowed(program: str, create: bool) -> None:
         )
 
 
-def write_program(program: str, source: str, create: bool = False) -> dict:
+def write_program(
+    program: str, source: str, create: bool = False, title: str = ""
+) -> dict:
     """Create or update an ABAP program's source. Requires SAP_ALLOW_WRITE=true.
 
-    Saved INACTIVE so nothing goes live until you explicitly activate it.
+    create=True: new program in $TMP, saved INACTIVE (activate it afterwards).
+      The package dialog is suppressed (without DEVELOPMENT_CLASS/SUPPRESS_DIALOG
+      RPY_PROGRAM_INSERT dies with DYNPRO_SEND_IN_BACKGROUND over RFC) and the
+      source goes in SOURCE_EXTENDED: on S4D the 144-wide SOURCE table is
+      silently ignored and an empty program is saved.
+    create=False: the source is syntax-checked first, then written ACTIVE via
+      SIW_RFC_WRITE_REPORT. RPY_PROGRAM_UPDATE is not remote-enabled and its
+      dispatcher wrapper empties the active version, so there is no safe
+      "save inactive" for an existing program. An old inactive version, if any,
+      is left untouched - do not activate it afterwards.
     """
     _require_write()
     _check_package_allowed(program, create)
-    lines = _source_to_lines(source)
-    fm = "RPY_PROGRAM_INSERT" if create else "RPY_PROGRAM_UPDATE"
-    kwargs: dict[str, Any] = {
-        "PROGRAM_NAME": program.upper(),
-        "SAVE_INACTIVE": "X",
-        "SOURCE": lines,
-    }
     if create:
-        # Minimal attributes for a new executable program.
-        kwargs["PROGRAM_TYPE"] = "1"  # 1 = executable report
-    res = get_client().call(fm, **kwargs)
+        res = get_client().call(
+            "RPY_PROGRAM_INSERT",
+            PROGRAM_NAME=program.upper(),
+            PROGRAM_TYPE="1",  # 1 = executable report
+            TITLE_STRING=(title or program).strip()[:70],
+            DEVELOPMENT_CLASS="$TMP",
+            SUPPRESS_DIALOG="X",
+            SAVE_INACTIVE="X",
+            SOURCE_EXTENDED=_source_to_lines(source, width=255),
+        )
+        return {
+            "program": program.upper(),
+            "action": "created",
+            "saved_inactive": True,
+            "raw": res,
+        }
+    try:
+        check = syntax_check(source, program)
+    except SapConnectionError as exc:  # the dispatcher reports a syntax error as subrc 4
+        raise SapConnectionError(
+            f"Syntax check failed, {program.upper()} not updated: {exc}"
+        ) from exc
+    if not (check.get("result") or {}).get("ok"):
+        raise SapConnectionError(
+            f"Syntax check failed, {program.upper()} not updated: "
+            f"{check.get('message') or check.get('result')}"
+        )
+    name = program.upper()
+    res = get_client().call(
+        "SIW_RFC_WRITE_REPORT",
+        I_NAME=name,
+        I_OBJECT="PROG",
+        I_OBJNAME=name,
+        I_PROGTYPE="1",
+        I_TAB_CODE=[ln for ln in source.replace("\r\n", "\n").split("\n")],
+    )
     return {
-        "program": program.upper(),
-        "action": "created" if create else "updated",
-        "saved_inactive": True,
+        "program": name,
+        "action": "updated",
+        "saved_inactive": False,
+        "active": True,
         "raw": res,
     }
 

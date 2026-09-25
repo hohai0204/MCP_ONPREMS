@@ -55,9 +55,12 @@ def sap_read_table(
 
 
 @mcp.tool()
-def sap_read_program(program: str) -> dict:
-    """Read the source code of an ABAP program/report by name."""
-    return _safe(tools.read_program, program)
+def sap_read_program(program: str, state: str = "A") -> dict:
+    """Read the source code of an ABAP program/report by name.
+
+    state: "A" active version (default), "I" inactive version (saved but not yet
+    activated), "latest" inactive if present else active."""
+    return _safe(tools.read_program, program, state)
 
 
 @mcp.tool()
@@ -242,17 +245,23 @@ def sap_textpool_write(
 
 
 @mcp.tool()
-def sap_write_program(program: str, source: str, create: bool = False) -> dict:
-    """Create or update an ABAP program's source (saved INACTIVE).
+def sap_write_program(
+    program: str, source: str, create: bool = False, title: str = ""
+) -> dict:
+    """Create or update an ABAP program's source.
 
     Disabled unless SAP_ALLOW_WRITE=true. Intended for DEV systems only.
 
     Args:
         program: Program name (custom objects should start with Z/Y).
         source: Full ABAP source code.
-        create: True to create a new program, False to update an existing one.
+        create: True = new program in $TMP, saved INACTIVE (call sap_activate
+            next). False = update an existing program: the source is
+            syntax-checked, then written ACTIVE (there is no safe inactive save
+            for existing programs on S4D).
+        title: Program title for a new program (defaults to the program name).
     """
-    return _safe(tools.write_program, program, source, create)
+    return _safe(tools.write_program, program, source, create, title)
 
 
 @mcp.tool()

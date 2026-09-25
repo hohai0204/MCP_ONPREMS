@@ -84,6 +84,10 @@ FUNCTION zmcp_adt_dispatch.
           PERFORM program_write USING iv_params
                                 CHANGING ev_subrc ev_message ev_result.
 
+        WHEN 'READ_PROGRAM'.
+          PERFORM read_program_src USING iv_params
+                                   CHANGING ev_subrc ev_message ev_result.
+
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
@@ -627,6 +631,65 @@ FORM activate_objs USING iv_params TYPE string
 ENDFORM.
 
 *&---------------------------------------------------------------------*
+*& FORM READ_PROGRAM_SRC   (read-only) - report source by version
+*&  params: { "name": "ZTEST", "state": "A" }   (A active / I inactive)
+*&  RPY_PROGRAM_READ only returns the active version, so a source that was
+*&  saved inactive is invisible through it.
+*&  result: { "name": "ZTEST", "state": "I", "lines": ["REPORT ...", ...] }
+*&---------------------------------------------------------------------*
+FORM read_program_src USING iv_params TYPE string
+                      CHANGING ev_subrc TYPE i
+                               ev_message TYPE string
+                               ev_result TYPE string.
+
+  DATA: BEGIN OF ls_in,
+          name  TYPE string,
+          state TYPE string,
+        END OF ls_in.
+  DATA: BEGIN OF ls_out,
+          name  TYPE string,
+          state TYPE string,
+          lines TYPE STANDARD TABLE OF string WITH DEFAULT KEY,
+        END OF ls_out.
+  DATA: lt_src   TYPE STANDARD TABLE OF string,
+        lv_prog  TYPE syrepid,
+        lv_state TYPE c LENGTH 1.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params
+                             CHANGING  data = ls_in ).
+
+  lv_prog  = to_upper( ls_in-name ).
+  lv_state = COND #( WHEN to_upper( ls_in-state ) = 'I' THEN 'I' ELSE 'A' ).
+
+  " READ REPORT does no authorization check of its own (RPY_PROGRAM_READ does).
+  AUTHORITY-CHECK OBJECT 'S_DEVELOP'
+    ID 'DEVCLASS' DUMMY
+    ID 'OBJTYPE'  FIELD 'PROG'
+    ID 'OBJNAME'  FIELD lv_prog
+    ID 'P_GROUP'  DUMMY
+    ID 'ACTVT'    FIELD '03'.
+  IF sy-subrc <> 0.
+    ev_subrc = 8.
+    ev_message = |No display authorization (S_DEVELOP) for program { lv_prog }|.
+    RETURN.
+  ENDIF.
+
+  READ REPORT lv_prog INTO lt_src STATE lv_state.
+  IF sy-subrc <> 0.
+    ev_subrc = 4.
+    ev_message = |Program { lv_prog } has no version in state { lv_state }|.
+    RETURN.
+  ENDIF.
+
+  ls_out-name  = lv_prog.
+  ls_out-state = lv_state.
+  ls_out-lines = lt_src.
+  ev_result  = /ui2/cl_json=>serialize( data = ls_out ).
+  ev_message = |{ lines( lt_src ) } lines|.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
 *& FORM READ_DDLS   (read-only) - CDS / DDL source
 *&  params: { "name": "ZCDS_BP", "state": "A" }
 *&          (state A active / I inactive)
@@ -703,11 +766,26 @@ FORM program_write USING iv_params TYPE string
   /ui2/cl_json=>deserialize( EXPORTING json = iv_params
                              CHANGING  data = ls_in ).
 
-  DATA: lt_src  TYPE STANDARD TABLE OF string,
+  DATA: lt_src  TYPE STANDARD TABLE OF abaptxt255,
         lv_prog TYPE syrepid.
 
-  lt_src  = ls_in-source.
+  " SOURCE_EXTENDED (255 wide): RPY_PROGRAM_INSERT/UPDATE ignore the 144-wide
+  " SOURCE table on S4D and would save an empty program. A string table also
+  " dumps (CX_SY_DYN_CALL_ILLEGAL_TYPE), so convert line by line.
+  LOOP AT ls_in-source INTO DATA(lv_line).
+    APPEND VALUE abaptxt255( line = lv_line ) TO lt_src.
+  ENDLOOP.
   lv_prog = to_upper( ls_in-program ).
+
+  " RPY_PROGRAM_UPDATE stores the new source inactive but EMPTIES the active
+  " version of the program (verified on S4D, save_inactive 'X' and 'I'), so an
+  " update would leave the program without runnable source until activation.
+  " Updates go through SIW_RFC_WRITE_REPORT on the bridge side instead.
+  IF ls_in-create = abap_false.
+    ev_subrc = 4.
+    ev_message = 'Update refused: RPY_PROGRAM_UPDATE wipes the active source. Use SIW_RFC_WRITE_REPORT.'.
+    RETURN.
+  ENDIF.
 
   IF ls_in-create = abap_true.
     CALL FUNCTION 'RPY_PROGRAM_INSERT'
@@ -715,8 +793,11 @@ FORM program_write USING iv_params TYPE string
         program_name       = lv_prog
         save_inactive      = 'X'
         program_type       = '1'
+        title_string       = CONV rglif-title( lv_prog )
+        development_class  = '$TMP'
+        suppress_dialog    = 'X'
       TABLES
-        source             = lt_src
+        source_extended    = lt_src
       EXCEPTIONS
         already_exists     = 1
         cancelled          = 2
@@ -729,7 +810,7 @@ FORM program_write USING iv_params TYPE string
         program_name       = lv_prog
         save_inactive      = 'X'
       TABLES
-        source             = lt_src
+        source_extended    = lt_src
       EXCEPTIONS
         cancelled          = 1
         permission_error   = 2

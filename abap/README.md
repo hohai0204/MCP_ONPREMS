@@ -71,7 +71,8 @@ Input `IV_PARAMS` is a JSON string; output `EV_RESULT` is JSON.
 | `READ_DDLS`     | R | `{"name","state"}` | `SELECT … FROM DDDDLSRC` |
 | `RUN_UNIT_TESTS`| R | `{"class"}` | `CL_AUCV_TEST_RUNNER_STANDARD` |
 | `ATC_CHECK`     | R | `{"object_type","object_name","variant"}` | Code Inspector engine (`CL_CI_*`) |
-| `PROGRAM_WRITE` | W | `{"program","source":[...],"create"}` | `RPY_PROGRAM_UPDATE` / `RPY_PROGRAM_INSERT` (local call — works around `RPY_PROGRAM_UPDATE` not being remote-enabled on some systems, e.g. S4D) |
+| `PROGRAM_WRITE` | W | `{"program","source":[...],"create":true}` | `RPY_PROGRAM_INSERT` with `SOURCE_EXTENDED`, `$TMP`, dialog suppressed. `create:false` is **refused**: `RPY_PROGRAM_UPDATE` empties the active source on S4D — the bridge updates via `SIW_RFC_WRITE_REPORT` instead |
+| `READ_PROGRAM`  | R | `{"name","state":"A"\|"I"}` | `READ REPORT … STATE` (+ `S_DEVELOP` display check). `RPY_PROGRAM_READ` cannot read a saved-but-inactive version |
 
 ## `ZMCP_ADT_TEXTPOOL` actions
 
