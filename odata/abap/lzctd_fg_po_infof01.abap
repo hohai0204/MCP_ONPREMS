@@ -52,6 +52,8 @@ ENDFORM.
 * Ghi object R3TR cho package thật, không hỏi hộp thoại:
 * TADIR (TR_TADIR_INTERFACE) rồi ghi vào TR (TR_RECORD_OBJ_CHANGE_TO_REQ).
 * Gọi lại khi object đã có trong TR thì không sao.
+* Object đã có TADIR ở package KHÁC -> báo lỗi, dừng (không đổi package ngầm;
+* muốn chuyển package thì làm riêng, có chủ đích).
 FORM record_object USING    iv_type      TYPE trobjtype
                             iv_name      TYPE csequence
                             iv_package   TYPE devclass
@@ -69,7 +71,13 @@ FORM record_object USING    iv_type      TYPE trobjtype
   SELECT SINGLE devclass FROM tadir
     WHERE pgmid = 'R3TR' AND object = @iv_type AND obj_name = @lv_object
     INTO @DATA(lv_devclass).
-  IF sy-subrc <> 0 OR lv_devclass <> iv_package.
+  IF sy-subrc = 0 AND lv_devclass <> iv_package.
+    APPEND VALUE #( type = 'E'
+                    message = |Đối tượng { iv_type } { iv_name } đang thuộc package { lv_devclass }, không tự chuyển sang { iv_package }.| )
+      TO ct_return.
+    RETURN.
+  ENDIF.
+  IF lv_devclass IS INITIAL.
     CALL FUNCTION 'TR_TADIR_INTERFACE'
       EXPORTING
         wi_test_modus       = ' '
