@@ -73,3 +73,19 @@ TYPES: gty_t_cont_item    TYPE STANDARD TABLE OF ztb_cont_item WITH DEFAULT KEY,
          t_condx    TYPE STANDARD TABLE OF bapimepocondx WITH DEFAULT KEY,
          t_extin    TYPE STANDARD TABLE OF bapiparex WITH DEFAULT KEY,
        END OF gty_cont_bapi.
+
+*----------------------------------------------------------------------*
+* ZCTD_FM_CREATE_BP - kiểu dữ liệu dùng chung với LZCTD_FG_COREF02
+*----------------------------------------------------------------------*
+TYPES: gty_t_bp_company TYPE STANDARD TABLE OF zctd_s_bp_company WITH DEFAULT KEY,
+       gty_t_bp_purch   TYPE STANDARD TABLE OF zctd_s_bp_purch WITH DEFAULT KEY.
+
+" Giá trị phổ biến của nhà cung cấp nhóm Z001 (client 360, tạo từ 2025)
+CONSTANTS: gc_bp_group_def  TYPE bu_group VALUE 'Z001',
+           gc_bp_bukrs_def  TYPE bukrs    VALUE '1000',
+           gc_bp_akont_def  TYPE akont    VALUE '3311000001',
+           gc_bp_zterm_def  TYPE dzterm   VALUE '1045',
+           gc_bp_ekorg_def  TYPE ekorg    VALUE '1000',
+           gc_bp_waers_def  TYPE bstwa    VALUE 'VND',
+           gc_bp_role_fi    TYPE bu_role  VALUE 'FLVN00',
+           gc_bp_role_purch TYPE bu_role  VALUE 'FLVN01'.
