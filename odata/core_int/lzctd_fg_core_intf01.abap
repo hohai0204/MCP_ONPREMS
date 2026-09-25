@@ -5,9 +5,10 @@
 
 * Báo lỗi nếu có điều kiện lọc theo field không hỗ trợ.
 * iv_allowed: danh sách property viết hoa, cách nhau bằng dấu phẩy.
+* iv_msgno: message ZMC_CTD "Danh sách ... chưa hỗ trợ lọc theo &1" của đối tượng.
 FORM check_filter USING    it_filter  TYPE ty_t_filter
                            iv_allowed TYPE string
-                           iv_object  TYPE string
+                           iv_msgno   TYPE symsgno
                   CHANGING ct_return  TYPE bapiret2_t.
   DATA lt_allowed TYPE string_table.
 
@@ -15,8 +16,8 @@ FORM check_filter USING    it_filter  TYPE ty_t_filter
   LOOP AT it_filter INTO DATA(ls_filter).
     DATA(lv_property) = to_upper( condense( CONV string( ls_filter-property ) ) ).
     IF NOT line_exists( lt_allowed[ table_line = lv_property ] ).
-      APPEND VALUE #( type    = 'E'
-                      message = |{ iv_object } chưa hỗ trợ lọc theo { ls_filter-property }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = iv_msgno iv_v1 = condense( CONV string( ls_filter-property ) ) )
+                      type = 'E' )
         TO ct_return.
     ENDIF.
   ENDLOOP.

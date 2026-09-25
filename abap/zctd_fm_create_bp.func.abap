@@ -48,7 +48,7 @@
   TRY.
       lv_guid = cl_system_uuid=>create_uuid_c32_static( ).
     CATCH cx_uuid_error.
-      APPEND VALUE #( type = 'E' message = |Không tạo được mã định danh cho nhà cung cấp mới.| ) TO et_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '077' ) type = 'E' ) TO et_return.
       RETURN.
   ENDTRY.
 

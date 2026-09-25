@@ -71,7 +71,7 @@
     SORT lr_sub BY low.
     DELETE ADJACENT DUPLICATES FROM lr_sub COMPARING low.
     IF lr_sub IS INITIAL.
-      APPEND VALUE #( type = 'S' message = |Không có đơn mua hàng nào thỏa điều kiện.| ) TO et_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '083' ) type = 'S' ) TO et_return.
       RETURN.
     ENDIF.
   ENDIF.
@@ -101,5 +101,5 @@
     UP TO @lv_top ROWS
     OFFSET @iv_skip.
 
-  APPEND VALUE #( type = 'S'
-                  message = |Tìm thấy { ev_total } đơn mua hàng, trả về { lines( et_po ) }.| ) TO et_return.
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = '084' iv_v1 = |{ ev_total }| iv_v2 = |{ lines( et_po )
+                  }| ) type = 'S' ) TO et_return.

@@ -17,12 +17,12 @@
 FORM bp_check_input USING    is_supplier TYPE zctd_s_bp_supplier
                     CHANGING ct_return   TYPE bapiret2_t.
   IF is_supplier-name1 IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_SUPPLIER' field = 'NAME1'
-                    message = |Chưa nhập tên nhà cung cấp.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '070' )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'NAME1' ) TO ct_return.
   ENDIF.
   IF is_supplier-country IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_SUPPLIER' field = 'COUNTRY'
-                    message = |Chưa nhập quốc gia của nhà cung cấp.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '071' )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'COUNTRY' ) TO ct_return.
   ENDIF.
 ENDFORM.
 
@@ -188,15 +188,14 @@ FORM bp_maintain USING    it_data     TYPE cvis_ei_extern_t
 
   IF lv_has_err = abap_true.
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-    APPEND VALUE #( type = 'E'
-                    message = |Không { COND string( WHEN iv_change = abap_true THEN `cập nhật` ELSE `tạo` ) } được nhà cung cấp, xem các thông báo của SAP ở trên để biết nguyên nhân.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = COND #( WHEN iv_change = abap_true THEN '073' ELSE '072' ) )
+                    type = 'E' )
       TO ct_return.
     RETURN.
   ENDIF.
   IF iv_testrun = abap_true.
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-    APPEND VALUE #( type = 'S'
-                    message = |Chạy thử thành công: dữ liệu hợp lệ, chưa lưu nhà cung cấp.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '074' ) type = 'S' ) TO ct_return.
     RETURN.
   ENDIF.
 
@@ -207,8 +206,7 @@ FORM bp_maintain USING    it_data     TYPE cvis_ei_extern_t
       return = ls_commit.
   IF ls_commit-type CA 'EA'.
     APPEND ls_commit TO ct_return.
-    APPEND VALUE #( type = 'E'
-                    message = |Không lưu được nhà cung cấp, toàn bộ thay đổi đã được hủy.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '075' ) type = 'E' ) TO ct_return.
     RETURN.
   ENDIF.
 
@@ -216,10 +214,10 @@ FORM bp_maintain USING    it_data     TYPE cvis_ei_extern_t
   lv_guid = iv_guid.
   SELECT SINGLE partner FROM but000 WHERE partner_guid = @lv_guid INTO @cv_partner.
   SELECT SINGLE vendor FROM cvi_vend_link WHERE partner_guid = @lv_guid INTO @cv_supplier.
-  APPEND VALUE #( type = 'S' message_v1 = cv_partner message_v2 = cv_supplier
-                  message = COND #( WHEN iv_change = abap_true
-                                    THEN |Đã cập nhật nhà cung cấp { condense( |{ cv_supplier ALPHA = OUT }| ) } (BP { condense( |{ cv_partner ALPHA = OUT }| ) }).|
-                                    ELSE |Đã tạo nhà cung cấp { condense( |{ cv_supplier ALPHA = OUT }| ) } (BP { condense( |{ cv_partner ALPHA = OUT }| ) }) kèm dữ liệu công ty và mua hàng.| ) )
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = COND #( WHEN iv_change = abap_true THEN '078' ELSE '079' )
+                                     iv_v1 = condense( |{ cv_supplier ALPHA = OUT }| )
+                                     iv_v2 = condense( |{ cv_partner ALPHA = OUT }| ) )
+                  type = 'S' )
     TO ct_return.
 ENDFORM.
 
@@ -236,8 +234,8 @@ FORM bp_read_existing USING    iv_supplier TYPE lifnr
     WHERE vendor = @cs_exist-lifnr
     INTO @cs_exist-guid.
   IF sy-subrc <> 0.
-    APPEND VALUE #( type = 'E' parameter = 'IV_SUPPLIER'
-                    message = |Không tìm thấy nhà cung cấp { cs_exist-lifnr ALPHA = OUT } để cập nhật.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '076' iv_v1 = |{ cs_exist-lifnr ALPHA = OUT }| )
+                    type = 'E' parameter = 'IV_SUPPLIER' ) TO ct_return.
     RETURN.
   ENDIF.
   SELECT SINGLE partner FROM but000 WHERE partner_guid = @cs_exist-guid INTO @cs_exist-partner.

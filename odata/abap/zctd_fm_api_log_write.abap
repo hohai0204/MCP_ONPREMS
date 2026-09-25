@@ -30,12 +30,13 @@
       ev_subrc = sy-subrc.
       IF ev_subrc = 0.
         COMMIT CONNECTION (lc_connection).
-        ev_message = |Đã ghi log { ls_log-corr_id }.|.
+        ev_message = lcl_msg=>get( iv_no = '100' iv_v1 = |{ ls_log-corr_id }| )-message.
       ELSE.
         ROLLBACK CONNECTION (lc_connection).
-        ev_message = |Log { ls_log-corr_id } lúc { ls_log-call_date DATE = USER } { ls_log-call_time TIME = USER } đã tồn tại.|.
+        ev_message = lcl_msg=>get( iv_no = '101' iv_v1 = |{ ls_log-corr_id }| iv_v2 = |{ ls_log-call_date DATE = USER }|
+                                   iv_v3 = |{ ls_log-call_time TIME = USER }| )-message.
       ENDIF.
     CATCH cx_root INTO DATA(lx_error).
       ev_subrc   = 8.
-      ev_message = |Không ghi được log gọi API: { lx_error->get_text( ) }|.
+      ev_message = lcl_msg=>get( iv_no = '102' iv_v1 = lx_error->get_text( ) )-message.
   ENDTRY.

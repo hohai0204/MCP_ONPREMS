@@ -39,23 +39,23 @@
 
   MODIFY ztb_cont_header FROM is_header.
   IF sy-subrc <> 0.
-    MESSAGE |Không lưu được thông tin chung của hợp đồng cho đơn mua hàng { is_header-ebeln }.| TYPE 'A'.
+    MESSAGE a060(zmc_ctd) WITH is_header-ebeln.
   ENDIF.
   IF it_item[] IS NOT INITIAL.
     MODIFY ztb_cont_item FROM TABLE it_item.
     IF sy-subrc <> 0.
-      MESSAGE |Không lưu được dòng hàng của hợp đồng cho đơn mua hàng { is_header-ebeln }.| TYPE 'A'.
+      MESSAGE a061(zmc_ctd) WITH is_header-ebeln.
     ENDIF.
   ENDIF.
   IF it_partner[] IS NOT INITIAL.
     MODIFY ztb_cont_header1 FROM TABLE it_partner.
     IF sy-subrc <> 0.
-      MESSAGE |Không lưu được đối tác của hợp đồng cho đơn mua hàng { is_header-ebeln }.| TYPE 'A'.
+      MESSAGE a062(zmc_ctd) WITH is_header-ebeln.
     ENDIF.
   ENDIF.
   IF it_cond[] IS NOT INITIAL.
     MODIFY ztb_cond_item FROM TABLE it_cond.
     IF sy-subrc <> 0.
-      MESSAGE |Không lưu được điều kiện giá của hợp đồng cho đơn mua hàng { is_header-ebeln }.| TYPE 'A'.
+      MESSAGE a063(zmc_ctd) WITH is_header-ebeln.
     ENDIF.
   ENDIF.

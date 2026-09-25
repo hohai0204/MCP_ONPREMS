@@ -23,7 +23,7 @@
 
   PERFORM check_filter USING it_filter[]
     `SUPPLIER,NAME1,SEARCHTERM,COUNTRY,ACCOUNTGROUP,TAXNUMBER1,VATNUMBER,CREATEDON,POSTINGBLOCK,DELETIONFLAG`
-    `Danh sách nhà cung cấp`
+    '090'
     CHANGING et_return.
   IF line_exists( et_return[ type = 'E' ] ).
     RETURN.
@@ -60,10 +60,10 @@
     UP TO @lv_top ROWS
     OFFSET @iv_skip.
   IF lt_lfa1 IS INITIAL.
-    APPEND VALUE #( type = 'S' message = |Không có nhà cung cấp nào thỏa điều kiện.| ) TO et_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '092' ) type = 'S' ) TO et_return.
     RETURN.
   ENDIF.
 
   PERFORM vendor_details USING lt_lfa1 CHANGING et_vendor[].
-  APPEND VALUE #( type = 'S'
-                  message = |Tìm thấy { ev_total } nhà cung cấp, trả về { lines( et_vendor ) }.| ) TO et_return.
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = '093' iv_v1 = |{ ev_total }| iv_v2 = |{ lines( et_vendor )
+                  }| ) type = 'S' ) TO et_return.

@@ -66,27 +66,21 @@ ENDFORM.
 
 FORM cont_chk_required USING is_doc TYPE gty_cont_doc
                        CHANGING ct_return TYPE bapiret2_t.
-  DATA lt_missing TYPE string_table.
-
+  " mỗi thông tin còn thiếu một thông báo (ZMC_CTD 001-005)
   IF is_doc-head-bsart IS INITIAL.
-    APPEND `Loại hợp đồng` TO lt_missing.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '001' ) type = 'E' parameter = 'IS_HEADER' field = 'BSART' ) TO ct_return.
   ENDIF.
   IF is_doc-head-pspid IS INITIAL.
-    APPEND `Mã dự án` TO lt_missing.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '002' ) type = 'E' parameter = 'IS_HEADER' field = 'PSPID' ) TO ct_return.
   ENDIF.
   IF is_doc-head-posid IS INITIAL.
-    APPEND `WBS hợp đồng` TO lt_missing.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '003' ) type = 'E' parameter = 'IS_HEADER' field = 'POSID' ) TO ct_return.
   ENDIF.
   IF is_doc-head-lifnr IS INITIAL.
-    APPEND `Nhà cung cấp` TO lt_missing.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '004' ) type = 'E' parameter = 'IS_HEADER' field = 'LIFNR' ) TO ct_return.
   ENDIF.
   IF is_doc-head-zcont IS INITIAL.
-    APPEND `Số hợp đồng tham chiếu` TO lt_missing.
-  ENDIF.
-  IF lt_missing IS NOT INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER'
-                    message = |Thiếu thông tin bắt buộc: { concat_lines_of( table = lt_missing sep = `, ` ) }.| )
-      TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '005' ) type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' ) TO ct_return.
   ENDIF.
 ENDFORM.
 
@@ -97,8 +91,8 @@ FORM cont_chk_wbs_in_project USING is_doc TYPE gty_cont_doc
     WHERE prps~posid = @is_doc-head-posid AND proj~pspid = @is_doc-head-pspid
     INTO @DATA(lv_pspid).
   IF lv_pspid IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'POSID'
-                    message = |WBS { is_doc-posid_ext } không thuộc dự án { is_doc-pspid_ext }.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '006' iv_v1 = |{ is_doc-posid_ext }| iv_v2 = |{ is_doc-pspid_ext }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'POSID' ) TO ct_return.
   ENDIF.
 ENDFORM.
 
@@ -106,8 +100,8 @@ FORM cont_chk_vendor USING is_doc TYPE gty_cont_doc
                      CHANGING ct_return TYPE bapiret2_t.
   SELECT SINGLE lifnr FROM lfm1 WHERE lifnr = @is_doc-head-lifnr INTO @DATA(lv_lifnr).
   IF lv_lifnr IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'LIFNR'
-                    message = |Nhà cung cấp { is_doc-head-lifnr ALPHA = OUT } không tồn tại hoặc chưa có dữ liệu mua hàng.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '007' iv_v1 = |{ is_doc-head-lifnr ALPHA = OUT }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'LIFNR' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -127,8 +121,8 @@ FORM cont_chk_contract_used USING is_doc TYPE gty_cont_doc
       AND ztb_cont_item~loekz IS INITIAL
     INTO @DATA(ls_po_lock).
   IF ls_po_lock-ebeln IS NOT INITIAL AND ls_po_lock-zstatus_por = 'lock'.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZCONT'
-                    message = |Hợp đồng { ls_po_lock-ebeln } của số HĐ tham chiếu { is_doc-head-zcont } đang bị khóa bởi eConstruction.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '008' iv_v1 = |{ ls_po_lock-ebeln }| iv_v2 = |{ is_doc-head-zcont }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' )
       TO ct_return.
     RETURN.
   ENDIF.
@@ -140,8 +134,8 @@ FORM cont_chk_contract_used USING is_doc TYPE gty_cont_doc
       AND ztb_cont_header~bsart IN ( 'ZP05', 'ZP06', 'ZP07' )
     INTO @DATA(lv_ebeln).
   IF lv_ebeln IS NOT INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZCONT'
-                    message = |Số HĐ tham chiếu { is_doc-head-zcont } đã được dùng cho đơn mua hàng { lv_ebeln }. Hãy tạo phụ lục trên ZCONT.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '009' iv_v1 = |{ is_doc-head-zcont }| iv_v2 = |{ lv_ebeln }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -200,8 +194,8 @@ FORM cont_chk_contract_ref USING is_doc TYPE gty_cont_doc
   APPEND LINES OF lt_nt TO lt_plhd.
 
   IF NOT line_exists( lt_plhd[ soplhd = is_doc-head-zcont ] ).
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZCONT'
-                    message = |Số HĐ tham chiếu { is_doc-head-zcont } không có trên DMS cho nhà cung cấp { is_doc-head-lifnr ALPHA = OUT }, dự án { is_doc-pspid_ext }, WBS { is_doc-posid_ext }.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '010' iv_v1 = |{ is_doc-head-zcont }| iv_v2 = |{ is_doc-head-lifnr ALPHA = OUT }| iv_v3 = |{ is_doc-pspid_ext }| iv_v4 = |{ is_doc-posid_ext }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -218,8 +212,8 @@ FORM cont_chk_authority USING is_doc TYPE gty_cont_doc
     WHERE pspid = @is_doc-head-pspid
     INTO @DATA(lv_prctr).
   IF sy-subrc <> 0.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'PSPID'
-                    message = |Không tìm thấy dự án { is_doc-pspid_ext } để kiểm tra quyền.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '011' iv_v1 = |{ is_doc-pspid_ext }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'PSPID' )
       TO ct_return.
     RETURN.
   ENDIF.
@@ -228,10 +222,11 @@ FORM cont_chk_authority USING is_doc TYPE gty_cont_doc
     ID 'ACTVT' DUMMY
     ID 'PRCTR' FIELD lv_prctr.
   IF sy-subrc <> 0.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'PSPID'
-                    message = COND #( WHEN lv_prctr IS INITIAL
-                                      THEN |Người dùng { sy-uname } không có quyền tạo hợp đồng cho dự án { is_doc-pspid_ext } (dự án chưa gán trung tâm lợi nhuận).|
-                                      ELSE |Người dùng { sy-uname } không có quyền tạo hợp đồng cho dự án { is_doc-pspid_ext } (trung tâm lợi nhuận { lv_prctr ALPHA = OUT }).| ) )
+    APPEND VALUE #( BASE COND #( WHEN lv_prctr IS INITIAL
+                                 THEN lcl_msg=>get( iv_no = '013' iv_v1 = |{ sy-uname }| iv_v2 = |{ is_doc-pspid_ext }| )
+                                 ELSE lcl_msg=>get( iv_no = '012' iv_v1 = |{ sy-uname }| iv_v2 = |{ is_doc-pspid_ext }|
+                                                    iv_v3 = |{ lv_prctr ALPHA = OUT }| ) )
+                    type = 'E' parameter = 'IS_HEADER' field = 'PSPID' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -553,8 +548,8 @@ FORM cont_default_item USING    is_doc    TYPE gty_cont_doc
     TRY.
         cs_item-zamount = cs_item-mgame * cs_item-netpr / cs_item-peinh.
       CATCH cx_sy_arithmetic_error.
-        APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = cs_item-sttit field = 'NETPR'
-                        message = |Dòng { CONV i( cs_item-sttit ) }: thành tiền vượt quá giới hạn cho phép, kiểm tra lại số lượng và đơn giá.| )
+        APPEND VALUE #( BASE lcl_msg=>get( iv_no = '014' iv_v1 = |{ CONV i( cs_item-sttit )
+                        }| ) type = 'E' parameter = 'IT_ITEM' row = cs_item-sttit field = 'NETPR' )
           TO ct_return.
     ENDTRY.
   ENDIF.
@@ -657,8 +652,7 @@ FORM cont_cond_header_input CHANGING cs_doc    TYPE gty_cont_doc
 
   LOOP AT cs_doc-t_cond_in INTO DATA(ls_in) WHERE sttit IS INITIAL AND kschl IS NOT INITIAL AND kschl <> 'PBXX'.
     IF ls_in-kschl = 'MWST'.
-      APPEND VALUE #( type = 'E' parameter = 'IT_COND' field = 'KSCHL'
-                      message = |Thuế GTGT được tính tự động theo vật tư, không nhập ở điều kiện chung của hợp đồng.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '015' ) type = 'E' parameter = 'IT_COND' field = 'KSCHL' )
         TO ct_return.
       CONTINUE.
     ENDIF.
@@ -944,8 +938,8 @@ FORM cont_chk_annex USING is_doc TYPE gty_cont_doc
       AND ztb_cont_item~loekz IS INITIAL
     INTO @DATA(lv_ebeln).
   IF lv_ebeln IS NOT INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZCONT'
-                    message = |Số HĐ tham chiếu { is_doc-head-zcont } đã có đơn mua hàng gốc { lv_ebeln }. Chức năng này không tạo phụ lục, hãy dùng ZCONT.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '016' iv_v1 = |{ is_doc-head-zcont }| iv_v2 = |{ lv_ebeln }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -956,19 +950,18 @@ FORM cont_chk_plan_no USING is_doc TYPE gty_cont_doc
   IF is_doc-head-zsign IS NOT INITIAL.
     SELECT SINGLE zsign FROM ztb_sbpl_header WHERE zsign = @is_doc-head-zsign INTO @DATA(lv_zsign).
     IF sy-subrc <> 0.
-      APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZSIGN'
-                      message = |Số kế hoạch ký kết { is_doc-head-zsign } không tồn tại.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '017' iv_v1 = |{ is_doc-head-zsign }| )
+                      type = 'E' parameter = 'IS_HEADER' field = 'ZSIGN' ) TO ct_return.
     ENDIF.
   ENDIF.
   IF is_doc-zbudg IS NOT INITIAL.
     IF is_doc-head-zsign IS NOT INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IV_ZBUDG'
-                      message = |Chỉ được nhập một trong hai: số kế hoạch ký kết hoặc số kế hoạch ngân sách.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '018' ) type = 'E' parameter = 'IV_ZBUDG' ) TO ct_return.
     ENDIF.
     SELECT SINGLE zsign FROM ztb_sbpl_header WHERE zsign = @is_doc-zbudg INTO @lv_zsign.
     IF sy-subrc <> 0.
-      APPEND VALUE #( type = 'E' parameter = 'IV_ZBUDG'
-                      message = |Số kế hoạch ngân sách { is_doc-zbudg } không tồn tại.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '019' iv_v1 = |{ is_doc-zbudg }| )
+                      type = 'E' parameter = 'IV_ZBUDG' ) TO ct_return.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -977,45 +970,45 @@ ENDFORM.
 FORM cont_chk_org_data USING is_doc TYPE gty_cont_doc
                        CHANGING ct_return TYPE bapiret2_t.
   IF is_doc-head-ekorg IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'EKORG'
-                    message = |Chưa xác định được tổ chức mua hàng, vui lòng nhập.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '020' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'EKORG' ) TO ct_return.
   ENDIF.
   IF is_doc-head-ekgrp IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'EKGRP'
-                    message = |Chưa xác định được nhóm mua hàng, vui lòng nhập.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '021' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'EKGRP' ) TO ct_return.
   ENDIF.
   IF is_doc-head-bukrs IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'BUKRS'
-                    message = |Chưa xác định được công ty, vui lòng nhập.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '022' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'BUKRS' ) TO ct_return.
   ELSE.
     SELECT SINGLE vbukr FROM proj WHERE pspid = @is_doc-head-pspid INTO @DATA(lv_proj_bukrs).
     IF lv_proj_bukrs <> is_doc-head-bukrs.
-      APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'BUKRS'
-                      message = |Dự án { is_doc-pspid_ext } không thuộc công ty { is_doc-head-bukrs }.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '023' iv_v1 = |{ is_doc-pspid_ext }| iv_v2 = |{ is_doc-head-bukrs }| )
+                      type = 'E' parameter = 'IS_HEADER' field = 'BUKRS' ) TO ct_return.
     ENDIF.
   ENDIF.
 
   IF is_doc-head-bsart <> 'ZP03' AND is_doc-head-bsart <> 'ZP09' AND is_doc-head-posid IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'POSID'
-                    message = |Chưa nhập WBS hợp đồng.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '003' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'POSID' ) TO ct_return.
   ENDIF.
   SELECT SINGLE prps~posid FROM prps
     INNER JOIN proj ON prps~psphi = proj~pspnr
     WHERE prps~stufe = 1 AND proj~pspid = @is_doc-head-pspid AND prps~posid = @is_doc-head-posid
     INTO @DATA(lv_posid_l1).
   IF lv_posid_l1 IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'POSID'
-                    message = |WBS hợp đồng { is_doc-posid_ext } phải là WBS cấp 1 của dự án { is_doc-pspid_ext }.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '024' iv_v1 = |{ is_doc-posid_ext }| iv_v2 = |{ is_doc-pspid_ext }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'POSID' ) TO ct_return.
   ENDIF.
 
   IF is_doc-head-werks IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'WERKS'
-                    message = |Chưa xác định được nhà máy (dự án { is_doc-pspid_ext } chưa khai nhà máy), vui lòng nhập.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '025' iv_v1 = |{ is_doc-pspid_ext }| )
+                    type = 'E' parameter = 'IS_HEADER' field = 'WERKS' ) TO ct_return.
   ELSE.
     SELECT SINGLE bukrs FROM t001k WHERE bwkey = @is_doc-head-werks INTO @DATA(lv_plant_bukrs).
     IF lv_plant_bukrs <> is_doc-head-bukrs AND is_doc-head-bukrs IS NOT INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'WERKS'
-                      message = |Nhà máy { is_doc-head-werks } không thuộc công ty { is_doc-head-bukrs }.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '026' iv_v1 = |{ is_doc-head-werks }| iv_v2 = |{ is_doc-head-bukrs }| )
+                      type = 'E' parameter = 'IS_HEADER' field = 'WERKS' ) TO ct_return.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -1026,8 +1019,8 @@ FORM cont_chk_bank_type USING is_doc TYPE gty_cont_doc
   IF is_doc-bu_group = 'Z007'.
     " NCC vãng lai: bắt buộc địa chỉ
     IF is_doc-vendor_addr-name1 IS INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IS_VENDOR_ADDR' field = 'NAME1'
-                      message = |Nhà cung cấp { is_doc-head-lifnr ALPHA = OUT } là NCC vãng lai, cần nhập tên và địa chỉ nhà cung cấp.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '027' iv_v1 = |{ is_doc-head-lifnr ALPHA = OUT }| )
+                      type = 'E' parameter = 'IS_VENDOR_ADDR' field = 'NAME1' )
         TO ct_return.
     ENDIF.
     RETURN.
@@ -1035,31 +1028,30 @@ FORM cont_chk_bank_type USING is_doc TYPE gty_cont_doc
   CHECK is_doc-bu_group IS NOT INITIAL.
 
   IF is_doc-head-zzbvtyp IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZZBVTYP'
-                    message = |Chưa có loại tài khoản ngân hàng của đối tác (không tìm thấy trên DMS), vui lòng nhập.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '028' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZZBVTYP' ) TO ct_return.
   ELSE.
     " tài khoản của người nhận thanh toán (RS) nếu có, ngược lại của NCC
     DATA(lv_partner) = VALUE lifnr( is_doc-t_partner[ parvw = 'RS' ]-lifnr DEFAULT is_doc-head-lifnr ).
     SELECT SINGLE bkvid FROM but0bk WHERE partner = @lv_partner AND bkvid = @is_doc-head-zzbvtyp
       INTO @DATA(lv_bkvid).
     IF lv_bkvid IS INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZZBVTYP'
-                      message = |Loại tài khoản ngân hàng { is_doc-head-zzbvtyp } không tồn tại hoặc đã bị lưu trữ ở đối tác { lv_partner ALPHA = OUT }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '029' iv_v1 = |{ is_doc-head-zzbvtyp }| iv_v2 = |{ lv_partner ALPHA = OUT }| )
+                      type = 'E' parameter = 'IS_HEADER' field = 'ZZBVTYP' )
         TO ct_return.
     ENDIF.
   ENDIF.
 
   IF is_doc-head-bsart <> 'ZP04' AND is_doc-head-zcont IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'ZCONT'
-                    message = |Chưa nhập số hợp đồng tham chiếu.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '005' )
+                    type = 'E' parameter = 'IS_HEADER' field = 'ZCONT' ) TO ct_return.
   ENDIF.
 ENDFORM.
 
 FORM cont_chk_quantity USING is_doc TYPE gty_cont_doc
                        CHANGING ct_return TYPE bapiret2_t.
   IF is_doc-t_item IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM'
-                    message = |Hợp đồng chưa có dòng hàng nào.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '030' ) type = 'E' parameter = 'IT_ITEM' ) TO ct_return.
     RETURN.
   ENDIF.
   TRY.
@@ -1067,8 +1059,8 @@ FORM cont_chk_quantity USING is_doc TYPE gty_cont_doc
                        FOR i IN is_doc-t_item NEXT s = s + i-menge ).
       DATA(lv_sum_check) = CONV zamount( lv_sum ).
     CATCH cx_sy_arithmetic_error cx_sy_conversion_overflow.
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' field = 'MENGE'
-                      message = |Tổng số lượng các dòng quá lớn.| ) TO ct_return.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '031' )
+                      type = 'E' parameter = 'IT_ITEM' field = 'MENGE' ) TO ct_return.
   ENDTRY.
 ENDFORM.
 
@@ -1105,8 +1097,8 @@ FORM cont_chk_item_brand USING is_doc  TYPE gty_cont_doc
   DATA lv_charact TYPE atnam.
 
   IF is_item-matnr IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập vật tư.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '032' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR' ) TO ct_return.
     cv_failed = abap_true.
     RETURN.
   ENDIF.
@@ -1123,12 +1115,12 @@ FORM cont_chk_item_brand USING is_doc  TYPE gty_cont_doc
         input  = ls_brand-atinn
       IMPORTING
         output = lv_charact.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'BRAND'
-                    message = |Dòng { CONV i( is_item-sttit ) }: Brand "{ is_item-brand }" không có trong danh sách giá trị của đặc tính { lv_charact } (lớp { ls_brand-class }).| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '033' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-brand }| iv_v3 = |{ lv_charact }| iv_v4 = |{ ls_brand-class }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'BRAND' )
       TO ct_return.
   ELSE.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'BRAND'
-                    message = |Dòng { CONV i( is_item-sttit ) }: vật tư { is_item-matnr ALPHA = OUT } không được khai Brand, không nhập Brand "{ is_item-brand }".| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '034' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-matnr ALPHA = OUT }| iv_v3 = |{ is_item-brand }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'BRAND' )
       TO ct_return.
   ENDIF.
   cv_failed = abap_true.
@@ -1143,8 +1135,8 @@ FORM cont_chk_item_bomg USING is_doc  TYPE gty_cont_doc
         lv_usr11 TYPE proj-usr11.
 
   IF is_item-zbomg_code IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập mã BOMG.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '035' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE' ) TO ct_return.
     cv_failed = abap_true.
     RETURN.
   ENDIF.
@@ -1193,16 +1185,16 @@ FORM cont_chk_item_bomg USING is_doc  TYPE gty_cont_doc
     IF is_doc-check_bomp = abap_true.
       SELECT SINGLE boqnu FROM ztb_over_header
         WHERE pspid = @is_doc-head-pspid AND posid = @is_doc-head-posid INTO @DATA(lv_boq).
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                      message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } không có trong BOQ số { lv_boq } đã duyệt của WBS { is_doc-posid_ext }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '036' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ is_item-zbomg_code }| iv_v3 = |{ lv_boq }| iv_v4 = |{ is_doc-posid_ext }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE' )
         TO ct_return.
     ELSEIF lv_usr11 IS NOT INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                      message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } không có trong danh sách BOMG đã duyệt của WBS { is_doc-posid_ext }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '037' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ is_item-zbomg_code }| iv_v3 = |{ is_doc-posid_ext }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE' )
         TO ct_return.
     ELSE.
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                      message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } không tồn tại hoặc không được dùng để mua hàng.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '038' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ is_item-zbomg_code }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE' )
         TO ct_return.
     ENDIF.
     cv_failed = abap_true.
@@ -1215,8 +1207,8 @@ FORM cont_chk_item_bomg USING is_doc  TYPE gty_cont_doc
     WHERE zbomg_code = @is_item-zbomg_code AND ztb_bomg_header~loekz IS INITIAL
     INTO @DATA(lv_bomg_active).
   IF lv_bomg_active IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                    message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } đã bị đánh dấu xóa.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '039' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-zbomg_code }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE' )
       TO ct_return.
     cv_failed = abap_true.
   ENDIF.
@@ -1231,8 +1223,8 @@ FORM cont_chk_item_wbs USING is_doc  TYPE gty_cont_doc
         lv_wbs_text TYPE ps_posid.
 
   IF is_item-posid IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập WBS cấp 4.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '040' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID' ) TO ct_return.
     cv_failed = abap_true.
     RETURN.
   ENDIF.
@@ -1251,8 +1243,8 @@ FORM cont_chk_item_wbs USING is_doc  TYPE gty_cont_doc
       IMPORTING
         output = lv_posid.
     IF NOT line_exists( is_doc-t_wbs[ posid = lv_posid ] ).
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID'
-                      message = |Dòng { CONV i( is_item-sttit ) }: WBS { lv_wbs_text } không phải WBS cấp 4 thuộc WBS hợp đồng { is_doc-posid_ext }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '041' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ lv_wbs_text }| iv_v3 = |{ is_doc-posid_ext }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID' )
         TO ct_return.
       cv_failed = abap_true.
       RETURN.
@@ -1261,8 +1253,8 @@ FORM cont_chk_item_wbs USING is_doc  TYPE gty_cont_doc
 
   SELECT SINGLE zcsi, posid_edit FROM prps WHERE posid = @is_item-posid INTO @DATA(ls_prps).
   IF ls_prps-zcsi <> is_item-csi_group.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID'
-                    message = |Dòng { CONV i( is_item-sttit ) }: nhóm CSI của BOMG ({ is_item-csi_group }) khác nhóm CSI của WBS { ls_prps-posid_edit } ({ ls_prps-zcsi }).| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '042' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-csi_group }| iv_v3 = |{ ls_prps-posid_edit }| iv_v4 = |{ ls_prps-zcsi }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'POSID' )
       TO ct_return.
     cv_failed = abap_true.
   ENDIF.
@@ -1275,8 +1267,8 @@ FORM cont_chk_item_material USING is_doc  TYPE gty_cont_doc
                                      cv_failed TYPE abap_bool.
   SELECT SINGLE matnr, extwg FROM mara WHERE matnr = @is_item-matnr INTO @DATA(ls_mara).
   IF ls_mara-matnr IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR'
-                    message = |Dòng { CONV i( is_item-sttit ) }: vật tư { is_item-matnr ALPHA = OUT } không tồn tại hoặc chưa được kích hoạt.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '043' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-matnr ALPHA = OUT }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR' )
       TO ct_return.
     cv_failed = abap_true.
     RETURN.
@@ -1287,8 +1279,8 @@ FORM cont_chk_item_material USING is_doc  TYPE gty_cont_doc
       INTO TABLE @DATA(lt_matkl).
     SELECT DISTINCT matkl FROM ztb_mgc WHERE publish IS NOT INITIAL APPENDING TABLE @lt_matkl.
     IF NOT line_exists( lt_matkl[ matkl = is_item-matkl ] ).
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATKL'
-                      message = |Dòng { CONV i( is_item-sttit ) }: nhóm vật tư { is_item-matkl } không thuộc BOMG { is_item-zbomg_code }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '044' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ is_item-matkl }| iv_v3 = |{ is_item-zbomg_code }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATKL' )
         TO ct_return.
       cv_failed = abap_true.
       RETURN.
@@ -1299,8 +1291,8 @@ FORM cont_chk_item_material USING is_doc  TYPE gty_cont_doc
   AND ( is_doc-head-bsart = 'ZP01' OR is_doc-head-bsart = 'ZP02' OR is_doc-head-bsart = 'ZP03'
      OR is_doc-head-bsart = 'ZP04' OR is_doc-head-bsart = 'ZP08' )
   AND ( is_item-zsub IS INITIAL OR is_item-zsubn IS INITIAL ).
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZSUB'
-                    message = |Dòng { CONV i( is_item-sttit ) }: vật tư thuộc nhóm thuê thầu phụ, cần nhập mã và tên nhà thầu phụ.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '045' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZSUB' )
       TO ct_return.
     cv_failed = abap_true.
   ENDIF.
@@ -1314,8 +1306,8 @@ FORM cont_chk_item_plant_unit USING is_doc  TYPE gty_cont_doc
     SELECT SINGLE matnr FROM marc WHERE matnr = @is_item-matnr AND werks = @is_doc-head-werks
       INTO @DATA(lv_matnr).
     IF lv_matnr IS INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR'
-                      message = |Dòng { CONV i( is_item-sttit ) }: vật tư { is_item-matnr ALPHA = OUT } chưa được mở rộng cho nhà máy { is_doc-head-werks }.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '046' iv_v1 = |{ CONV i( is_item-sttit )
+                      }| iv_v2 = |{ is_item-matnr ALPHA = OUT }| iv_v3 = |{ is_doc-head-werks }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR' )
         TO ct_return.
     ENDIF.
   ENDIF.
@@ -1323,18 +1315,18 @@ FORM cont_chk_item_plant_unit USING is_doc  TYPE gty_cont_doc
   SELECT SINGLE meins, vabme FROM mara WHERE matnr = @is_item-matnr INTO @DATA(ls_mara).
   SELECT meinh FROM marm WHERE matnr = @is_item-matnr INTO TABLE @DATA(lt_meinh).
   IF NOT line_exists( lt_meinh[ meinh = is_item-meins ] ).
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS'
-                    message = |Dòng { CONV i( is_item-sttit ) }: đơn vị đặt hàng { is_item-meins } chưa khai quy đổi sang đơn vị cơ sở { ls_mara-meins } của vật tư.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '047' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-meins }| iv_v3 = |{ ls_mara-meins }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS' )
       TO ct_return.
   ELSEIF ls_mara-vabme IS INITIAL AND is_item-meins <> ls_mara-meins.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS'
-                    message = |Dòng { CONV i( is_item-sttit ) }: vật tư không cho phép đặt hàng theo đơn vị { is_item-meins }, hãy dùng { ls_mara-meins }.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '048' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-meins }| iv_v3 = |{ ls_mara-meins }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS' )
       TO ct_return.
   ENDIF.
 
   IF is_item-netpr IS INITIAL AND is_item-umson IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'NETPR'
-                    message = |Dòng { CONV i( is_item-sttit ) }: đơn giá phải lớn hơn 0 (trừ dòng hàng tặng).| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '049' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'NETPR' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -1346,22 +1338,22 @@ FORM cont_chk_item_equipment USING is_doc  TYPE gty_cont_doc
   CHECK is_doc-head-bsart = 'ZP08' AND line_exists( is_doc-r_zcont_tb[ low = is_item-matnr ] ).
 
   IF is_item-matnr_e IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR_E'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập mã thiết bị thuê.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '050' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR_E' ) TO ct_return.
   ELSEIF is_item-menge_e IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MENGE_E'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập số lượng thiết bị thuê.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '051' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MENGE_E' ) TO ct_return.
   ELSEIF is_item-meins_e IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS_E'
-                    message = |Dòng { CONV i( is_item-sttit ) }: chưa nhập đơn vị tính của thiết bị thuê.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '052' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MEINS_E' ) TO ct_return.
   ENDIF.
 
   CHECK is_item-matnr_e IS NOT INITIAL AND is_item-elikz IS INITIAL.
   SELECT SINGLE mtart FROM mara WHERE matnr = @is_item-matnr_e AND mtart IN @is_doc-r_mtart_eq
     INTO @DATA(lv_mtart).
   IF lv_mtart IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR_E'
-                    message = |Dòng { CONV i( is_item-sttit ) }: mã { is_item-matnr_e ALPHA = OUT } không phải là thiết bị.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '053' iv_v1 = |{ CONV i( is_item-sttit )
+                    }| iv_v2 = |{ is_item-matnr_e ALPHA = OUT }| ) type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'MATNR_E' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -1437,8 +1429,8 @@ FORM cont_check_amount USING is_doc TYPE gty_cont_doc
   DATA(lv_total) = CONV decfloat34( lv_amount_post + lv_amount_new ).
   DATA(lv_limit) = CONV decfloat34( ls_dms-amountwithvat ).
   IF lv_limit < lv_total.
-    APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' field = 'ZAMOUNT'
-                    message = |Tổng giá trị đặt hàng theo HĐ { is_doc-head-zcont } ({ lv_total NUMBER = USER } { is_doc-head-cuky }) vượt giá trị hợp đồng trên DMS ({ lv_limit NUMBER = USER }).| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '054' iv_v1 = |{ is_doc-head-zcont }| iv_v2 = |{ lv_total NUMBER = USER }| iv_v3 = |{ is_doc-head-cuky }| iv_v4 = |{ lv_limit NUMBER = USER }| )
+                    type = 'E' parameter = 'IT_ITEM' field = 'ZAMOUNT' )
       TO ct_return.
   ENDIF.
 ENDFORM.
@@ -1449,8 +1441,8 @@ FORM cont_check_header_cond USING is_doc TYPE gty_cont_doc
   LOOP AT is_doc-t_cond_h INTO DATA(ls_cond) WHERE kschl IS NOT INITIAL AND kschl <> 'PBXX' AND kschl <> 'MWST'.
     SELECT SINGLE kkopf FROM t685a WHERE kappl = 'M' AND kschl = @ls_cond-kschl INTO @DATA(lv_kkopf).
     IF lv_kkopf IS INITIAL.
-      APPEND VALUE #( type = 'E' parameter = 'IT_COND' field = 'KSCHL'
-                      message = |Điều kiện giá { ls_cond-kschl } ({ ls_cond-vtext }) không được dùng làm điều kiện chung của hợp đồng.| )
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '055' iv_v1 = |{ ls_cond-kschl }| iv_v2 = |{ ls_cond-vtext }| )
+                      type = 'E' parameter = 'IT_COND' field = 'KSCHL' )
         TO ct_return.
     ENDIF.
     CLEAR lv_kkopf.
@@ -1540,8 +1532,7 @@ FORM cont_post_po USING    is_doc     TYPE gty_cont_doc
   IF line_exists( lt_bapiret[ type = 'E' ] ) OR line_exists( lt_bapiret[ type = 'A' ] ).
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
     CLEAR cv_ebeln.
-    APPEND VALUE #( type = 'E'
-                    message = |Không tạo được đơn mua hàng, xem các thông báo của SAP ở trên để biết nguyên nhân.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '056' ) type = 'E' )
       TO ct_return.
     RETURN.
   ENDIF.
@@ -1549,8 +1540,7 @@ FORM cont_post_po USING    is_doc     TYPE gty_cont_doc
   IF iv_testrun = abap_true.
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
     CLEAR cv_ebeln.
-    APPEND VALUE #( type = 'S'
-                    message = |Chạy thử thành công: dữ liệu hợp lệ, chưa lưu chứng từ.| ) TO ct_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '057' ) type = 'S' ) TO ct_return.
     RETURN.
   ENDIF.
 
@@ -1830,15 +1820,14 @@ FORM cont_save_all CHANGING cs_doc    TYPE gty_cont_doc
     IF ls_commit IS NOT INITIAL.
       APPEND ls_commit TO ct_return.
     ENDIF.
-    APPEND VALUE #( type = 'E'
-                    message = |Không lưu được đơn mua hàng và hợp đồng, toàn bộ dữ liệu đã được hủy. Vui lòng báo bộ phận IT.| )
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '058' ) type = 'E' )
       TO ct_return.
     CLEAR cv_ebeln.
     RETURN.
   ENDIF.
 
-  APPEND VALUE #( type = 'S' message_v1 = cv_ebeln
-                  message = |Đã tạo hợp đồng và đơn mua hàng { cv_ebeln } thành công.| ) TO ct_return.
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = '059' iv_v1 = |{ cv_ebeln }| )
+                  type = 'S' message_v1 = cv_ebeln ) TO ct_return.
 ENDFORM.
 
 * Chuẩn bị dữ liệu hợp đồng để ghi (chưa đụng DB): gán số PO, bỏ dòng

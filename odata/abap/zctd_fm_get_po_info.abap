@@ -26,8 +26,7 @@
   REFRESH et_item.
 
   IF iv_ebeln IS INITIAL.
-    APPEND VALUE #( type = 'E' parameter = 'IV_EBELN'
-                    message = |Chưa nhập số đơn mua hàng.| ) TO et_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '080' ) type = 'E' parameter = 'IV_EBELN' ) TO et_return.
     RETURN.
   ENDIF.
   lv_ebeln = |{ iv_ebeln ALPHA = IN }|.
@@ -52,8 +51,8 @@
     WHERE ebeln = @lv_ebeln
     INTO @DATA(ls_ekko).
   IF sy-subrc <> 0.
-    APPEND VALUE #( type = 'E' parameter = 'IV_EBELN'
-                    message = |Không tìm thấy đơn mua hàng { iv_ebeln ALPHA = OUT }.| ) TO et_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '081' iv_v1 = |{ iv_ebeln ALPHA = OUT }| )
+                    type = 'E' parameter = 'IV_EBELN' ) TO et_return.
     RETURN.
   ENDIF.
 
@@ -264,5 +263,5 @@
     INTO @DATA(lv_changes).
   es_header-sourceversion = |{ lv_date }{ lv_time }-{ lv_changes }|.
 
-  APPEND VALUE #( type = 'S' message_v1 = lv_ebeln
-                  message = |Đã đọc đơn mua hàng { lv_ebeln ALPHA = OUT } ({ lines( et_item ) } dòng).| ) TO et_return.
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = '082' iv_v1 = |{ lv_ebeln ALPHA = OUT }| iv_v2 = |{ lines( et_item )
+                  }| ) type = 'S' message_v1 = lv_ebeln ) TO et_return.

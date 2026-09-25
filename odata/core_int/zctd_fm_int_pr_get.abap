@@ -28,7 +28,7 @@
 
   PERFORM check_filter USING it_filter[]
     `PRNUMBER,PRTYPE,PLANT,PURCHASINGGROUP,PURCHASINGORG,MATERIAL,CREATEDON,REQUESTDATE,RELEASEINDICATOR,REQUISITIONER,TRACKINGNO`
-    `Danh sách yêu cầu mua hàng`
+    '091'
     CHANGING et_return.
   IF line_exists( et_return[ type = 'E' ] ).
     RETURN.
@@ -64,10 +64,10 @@
     UP TO @lv_top ROWS
     OFFSET @iv_skip.
   IF lt_banfn IS INITIAL.
-    APPEND VALUE #( type = 'S' message = |Không có yêu cầu mua hàng nào thỏa điều kiện.| ) TO et_return.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '094' ) type = 'S' ) TO et_return.
     RETURN.
   ENDIF.
 
   PERFORM pr_details USING lt_banfn iv_with_items CHANGING et_header[] et_item[].
-  APPEND VALUE #( type = 'S'
-                  message = |Tìm thấy { ev_total } yêu cầu mua hàng, trả về { lines( et_header ) }.| ) TO et_return.
+  APPEND VALUE #( BASE lcl_msg=>get( iv_no = '095' iv_v1 = |{ ev_total }| iv_v2 = |{ lines( et_header )
+                  }| ) type = 'S' ) TO et_return.
