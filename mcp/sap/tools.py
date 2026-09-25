@@ -79,6 +79,23 @@ def _fm_denylist() -> list[str]:
     return _DEFAULT_FM_DENYLIST
 
 
+# ---------------------------------------------------------------------------
+# read-only FM allowlist for sap_run_rfc. run_rfc is a write-class tool, so a
+# read-only profile (SAP_ALLOW_WRITE=false, e.g. the client with real data)
+# cannot call even harmless FMs. SAP_RFC_READONLY_ALLOW lists FMs (comma-
+# separated, * wildcards) that a read-only profile may call anyway. Empty by
+# default. Only list FMs that never change data; the deny list still applies.
+# ---------------------------------------------------------------------------
+def _rfc_readonly_allowlist() -> list[str]:
+    env = (os.getenv("SAP_RFC_READONLY_ALLOW") or "").strip()
+    return [p.strip().upper() for p in env.split(",") if p.strip()]
+
+
+def _rfc_readonly_allowed(function_name: str) -> bool:
+    fm = function_name.upper()
+    return any(fnmatch.fnmatch(fm, pat) for pat in _rfc_readonly_allowlist())
+
+
 def _check_fm_allowed(function_name: str) -> None:
     fm = function_name.upper()
     for pat in _fm_denylist():
@@ -918,10 +935,11 @@ def run_rfc(function_name: str, params: dict | None = None) -> dict:
     """Escape hatch: call an arbitrary remote-enabled FM with a params dict.
 
     Treated as a write operation (guarded) because arbitrary FMs may change
-    data. High-risk FMs are additionally blocked by the deny list. Use
+    data, unless the FM is on SAP_RFC_READONLY_ALLOW. High-risk FMs are additionally blocked by the deny list. Use
     deliberately.
     """
-    _require_write()
+    if not _rfc_readonly_allowed(function_name):
+        _require_write()
     _check_fm_allowed(function_name)
     return get_client().call(function_name.upper(), **(params or {}))
 

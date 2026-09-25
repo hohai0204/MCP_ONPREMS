@@ -19,6 +19,16 @@ profiles must keep `SAP_ALLOW_WRITE=false`.
 
 ## Safety policy (applies to every profile)
 
+- **Read-only FM allowlist (`SAP_RFC_READONLY_ALLOW`)**: `sap_run_rfc` is a
+  write-class tool, so a read-only profile (`s4d-360`) refuses it by default.
+  A profile may list FMs (comma-separated, `*` wildcards) that it is allowed to
+  call anyway, in its own gitignored `mcp/profiles/<name>.env`. Rules: default
+  empty; list only FMs that never change data (a gateway test FM with a POST
+  mode does not qualify); the FM deny list still wins; the bridge enforces it
+  server-side and the write-guard hooks read the same key (`sap_run_rfc` only -
+  every other write tool stays blocked on read-only servers). This replaces
+  opening `SAP_ALLOW_WRITE` in-process for read-only tests on client 360.
+
 - **Client-side write guard (hook)**: `.claude/settings.json` runs
   `scripts/hooks/guard-sap-writes.ps1` (Windows) / `scripts/hooks/guard_sap_writes.py` (macOS/Linux)` before every SAP write tool call and
   blocks any MCP server not in the script's `$WritableServers` allowlist

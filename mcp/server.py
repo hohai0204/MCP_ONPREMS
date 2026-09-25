@@ -269,6 +269,8 @@ def sap_run_rfc(function_name: str, params: dict | None = None) -> dict:
     """Advanced: call an arbitrary remote-enabled function module.
 
     Disabled unless SAP_ALLOW_WRITE=true, because arbitrary FMs may change data.
+    Exception: FMs listed in SAP_RFC_READONLY_ALLOW may be called on a read-only
+    profile (that list must only contain FMs that never change data).
     """
     return _safe(tools.run_rfc, function_name, params)
 
