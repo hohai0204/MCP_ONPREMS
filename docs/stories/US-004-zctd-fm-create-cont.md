@@ -69,3 +69,4 @@ của chương trình `ZCCM_PG_ZCONT_NEW`, với các validation của chương 
 ## Harness Delta
 
 Không.
+- 2026-09-25 (sửa quyền): `cont_chk_authority` dùng `AUTHORITY-CHECK OBJECT 'ZAU_PRCTR' ID 'ACTVT' DUMMY ID 'PRCTR' FIELD <PROJ-PRCTR của dự án>`. Bản cũ dựng range từ `EFG_USER_AUTH_FOR_OBJ_GET`; user không được gán ZAU_PRCTR thì range rỗng nên `PRCTR IN range` luôn đúng và cho qua (lỗi có sẵn trong ZCCM_IN_ZCONT_NEW_F01 / T-code ZCONT1, chưa sửa). Dự án không có profit center: chỉ user có quyền giá trị trống hoặc `*` mới qua. Syntax function pool OK; thay đổi đi theo TR S4DK907429 (FUGR ZCTD_FG_CORE). Chưa test với user không có quyền (user RFC dùng profile, bảng UST04 bị chặn đọc).

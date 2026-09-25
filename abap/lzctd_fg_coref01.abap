@@ -206,48 +206,32 @@ FORM cont_chk_contract_ref USING is_doc TYPE gty_cont_doc
   ENDIF.
 ENDFORM.
 
-* Quyền theo Profit center của dự án - đối tượng ZAU_PRCTR (SET_BUTTON)
+* Quyền theo Profit center của dự án - đối tượng ZAU_PRCTR (ACTVT, PRCTR).
+* Kiểm tra bằng AUTHORITY-CHECK trên đúng profit center của dự án: user không
+* được gán ZAU_PRCTR, hoặc giá trị được gán không bao profit center này -> chặn.
+* (Bản cũ tự dựng range từ EFG_USER_AUTH_FOR_OBJ_GET: user không có quyền thì
+*  range rỗng -> "IN" luôn đúng -> cho qua; ZCCM_PG_ZCONT_NEW có cùng lỗi.)
+* WBS đã được kiểm tra thuộc dự án ở CONT_CHK_WBS_IN_PROJECT.
 FORM cont_chk_authority USING is_doc TYPE gty_cont_doc
                         CHANGING ct_return TYPE bapiret2_t.
-  DATA: lt_usvalues TYPE STANDARD TABLE OF usvalues,
-        lr_prctr    TYPE RANGE OF prctr.
-
-  CALL FUNCTION 'EFG_USER_AUTH_FOR_OBJ_GET'
-    EXPORTING
-      x_client       = sy-mandt
-      x_uname        = sy-uname
-      x_object       = 'ZAU_PRCTR'
-    TABLES
-      yt_usvalues    = lt_usvalues
-    EXCEPTIONS
-      user_not_found = 1
-      not_authorized = 2
-      internal_error = 3
-      OTHERS         = 4.
-  IF sy-subrc = 0.
-    LOOP AT lt_usvalues INTO DATA(ls_value) WHERE field = 'PRCTR'.
-      IF ls_value-bis IS NOT INITIAL.
-        APPEND VALUE #( sign = 'I' option = 'BT' low = ls_value-von high = ls_value-bis ) TO lr_prctr.
-      ELSEIF ls_value-von = '*'.
-        APPEND VALUE #( sign = 'I' option = 'CP' low = ls_value-von ) TO lr_prctr.
-      ELSE.
-        APPEND VALUE #( sign = 'I' option = 'EQ' low = ls_value-von ) TO lr_prctr.
-      ENDIF.
-    ENDLOOP.
-  ENDIF.
-
-  SELECT SINGLE pspid FROM proj
-    WHERE pspid = @is_doc-head-pspid AND prctr IN @lr_prctr
-    INTO @DATA(lv_pspid).
-  IF lv_pspid IS INITIAL.
-    SELECT SINGLE proj~pspid FROM proj
-      INNER JOIN prps ON prps~psphi = proj~pspnr
-      WHERE prps~posid = @is_doc-head-posid AND proj~prctr IN @lr_prctr
-      INTO @lv_pspid.
-  ENDIF.
-  IF lv_pspid IS INITIAL.
+  SELECT SINGLE prctr FROM proj
+    WHERE pspid = @is_doc-head-pspid
+    INTO @DATA(lv_prctr).
+  IF sy-subrc <> 0.
     APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'PSPID'
-                    message = |Người dùng { sy-uname } không có quyền tạo hợp đồng cho dự án { is_doc-pspid_ext }.| )
+                    message = |Không tìm thấy dự án { is_doc-pspid_ext } để kiểm tra quyền.| )
+      TO ct_return.
+    RETURN.
+  ENDIF.
+
+  AUTHORITY-CHECK OBJECT 'ZAU_PRCTR'
+    ID 'ACTVT' DUMMY
+    ID 'PRCTR' FIELD lv_prctr.
+  IF sy-subrc <> 0.
+    APPEND VALUE #( type = 'E' parameter = 'IS_HEADER' field = 'PSPID'
+                    message = COND #( WHEN lv_prctr IS INITIAL
+                                      THEN |Người dùng { sy-uname } không có quyền tạo hợp đồng cho dự án { is_doc-pspid_ext } (dự án chưa gán trung tâm lợi nhuận).|
+                                      ELSE |Người dùng { sy-uname } không có quyền tạo hợp đồng cho dự án { is_doc-pspid_ext } (trung tâm lợi nhuận { lv_prctr ALPHA = OUT }).| ) )
       TO ct_return.
   ENDIF.
 ENDFORM.
