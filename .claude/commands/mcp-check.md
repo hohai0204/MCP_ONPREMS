@@ -1,7 +1,7 @@
 ---
 description: Check whether the SAP MCP-RFC bridge is actually working (7 layers, read-only)
 argument-hint: "[profile] [--skip-sap]"
-allowed-tools: Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File *scripts/check-mcp.ps1*), Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File *scripts\check-mcp.ps1*), Read, Grep, Glob
+allowed-tools: Bash(.venv/bin/python scripts/mcp_probe.py*), Bash(python3 scripts/mcp_probe.py*), Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File *scripts/check-mcp.ps1*), Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File *scripts\check-mcp.ps1*), Read, Grep, Glob
 ---
 
 # MCP bridge check
@@ -14,6 +14,19 @@ Arguments: `$ARGUMENTS` — an optional profile name (e.g. `s4d-360`) and/or
 `--skip-sap` to stop before the SAP logon (offline / off-VPN).
 
 ## Step 1 — run the layered check
+
+**macOS / Linux** (no PowerShell): run the MCP handshake + SAP logon probe per
+profile instead of the script below, then continue at Step 2 (layers 1-4 are
+implied by a passing handshake; if it fails, read the error to name the layer).
+
+```
+.venv/bin/python scripts/mcp_probe.py --profile <name> --call sap_ping
+```
+
+The probe starts `mcp/server.py` the same way `scripts/mcp_launch.py` does. Use
+`claude mcp list` for layer 7 (registration).
+
+**Windows:**
 
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts/check-mcp.ps1" -Json
