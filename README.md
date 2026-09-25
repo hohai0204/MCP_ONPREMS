@@ -157,7 +157,32 @@ copy mcp\.env.example mcp\.env            # then edit
 copy mcp\profiles\s4d-360.env.example mcp\profiles\s4d-360.env   # then edit, re-run setup.ps1
 ```
 
-## Quick install on a new machine
+## Quick install on macOS
+
+```bash
+./setup.sh                       # same 9 steps as setup.ps1, macOS flavour
+./setup.sh --sdk ~/nwrfcsdk      # SDK not in mcp/vendor/nwrfcsdk-macos
+./setup.sh --python python3.12   # choose the interpreter for .venv
+```
+
+Differences from Windows:
+
+* The repo only carries the **Windows** SDK. Download *NW RFC SDK 7.50 for
+  MACOS on ARM64 / X86_64* from the SAP Software Center (S-user), extract it
+  with SAPCAR into `mcp/vendor/nwrfcsdk-macos` (or set `SAPNWRFC_HOME`). The
+  script strips the quarantine flag, rewrites the dylib install names to
+  `@rpath` and re-signs them ad hoc.
+* No macOS wheel of `pyrfc` exists, so it is compiled from source against the
+  SDK (needs Xcode Command Line Tools: `xcode-select --install`). Python 3.12
+  is recommended (`brew install python@3.12`).
+* Dependencies live in a project-local `.venv` (Homebrew Python refuses global
+  `pip install`). The MCP servers are registered with that interpreter and
+  `SAPNWRFC_HOME` as an env var.
+* No VC++ runtime step; verification uses `scripts/mcp_probe.py` directly
+  (there is no `check-mcp.sh`). The Harness step needs a macOS `harness-cli`
+  in `scripts/bin/` — otherwise it warns, or pass `--skip-harness`.
+
+## Quick install on a new Windows machine
 
 Copy the whole folder over, then from inside it run **one** of:
 

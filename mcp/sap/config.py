@@ -51,6 +51,7 @@ if _PROFILE_FILE and _PROFILE_FILE.is_file():
 
 # Bundled SDK shipped alongside this project (used if no env var overrides it).
 _BUNDLED_SDK = _PROJECT_ROOT / "vendor" / "nwrfcsdk"
+_BUNDLED_SDK_MACOS = _PROJECT_ROOT / "vendor" / "nwrfcsdk-macos"
 
 
 def _clean(value: str | None) -> str:
@@ -63,6 +64,11 @@ def resolve_nwrfc_home() -> str:
         val = _clean(os.getenv(env_key))
         if val:
             return val
+    if sys.platform == "darwin":
+        # The bundled nwrfcsdk is the Windows build; macOS needs its own copy.
+        if _BUNDLED_SDK_MACOS.is_dir():
+            return str(_BUNDLED_SDK_MACOS)
+        return ""
     if _BUNDLED_SDK.is_dir():
         return str(_BUNDLED_SDK)
     return ""
