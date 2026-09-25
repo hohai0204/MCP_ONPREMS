@@ -85,7 +85,7 @@ FORM record_object USING    iv_type      TYPE trobjtype
     IF sy-subrc <> 0.
       APPEND VALUE #( type = 'E' id = sy-msgid number = sy-msgno
                       message_v1 = sy-msgv1 message_v2 = sy-msgv2 message_v3 = sy-msgv3 message_v4 = sy-msgv4
-                      message = |Không tạo được TADIR cho { iv_type } { iv_name } (package { iv_package }).| ) TO ct_return.
+                      message = |Không đăng ký được đối tượng { iv_type } { iv_name } vào package { iv_package }.| ) TO ct_return.
       RETURN.
     ENDIF.
   ENDIF.

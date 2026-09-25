@@ -172,7 +172,7 @@
   IF sy-subrc <> 0.
     APPEND VALUE #( type = 'E' id = sy-msgid number = sy-msgno
                     message_v1 = sy-msgv1 message_v2 = sy-msgv2 message_v3 = sy-msgv3 message_v4 = sy-msgv4
-                    message = |Ghi class { iv_class } thất bại (SEO_CLASS_CREATE_COMPLETE rc={ sy-subrc }).| ) TO et_return.
+                    message = |Ghi class { iv_class } thất bại (mã lỗi { sy-subrc }).| ) TO et_return.
     RETURN.
   ENDIF.
   COMMIT WORK AND WAIT.

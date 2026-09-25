@@ -658,7 +658,7 @@ FORM cont_cond_header_input CHANGING cs_doc    TYPE gty_cont_doc
   LOOP AT cs_doc-t_cond_in INTO DATA(ls_in) WHERE sttit IS INITIAL AND kschl IS NOT INITIAL AND kschl <> 'PBXX'.
     IF ls_in-kschl = 'MWST'.
       APPEND VALUE #( type = 'E' parameter = 'IT_COND' field = 'KSCHL'
-                      message = |Thuế GTGT (MWST) được tính tự động theo vật tư, không nhập ở điều kiện chung của hợp đồng.| )
+                      message = |Thuế GTGT được tính tự động theo vật tư, không nhập ở điều kiện chung của hợp đồng.| )
         TO ct_return.
       CONTINUE.
     ENDIF.
@@ -1198,7 +1198,7 @@ FORM cont_chk_item_bomg USING is_doc  TYPE gty_cont_doc
         TO ct_return.
     ELSEIF lv_usr11 IS NOT INITIAL.
       APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
-                      message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } không có trong danh sách BOMG đã duyệt (BOMGL) của WBS { is_doc-posid_ext }.| )
+                      message = |Dòng { CONV i( is_item-sttit ) }: BOMG { is_item-zbomg_code } không có trong danh sách BOMG đã duyệt của WBS { is_doc-posid_ext }.| )
         TO ct_return.
     ELSE.
       APPEND VALUE #( type = 'E' parameter = 'IT_ITEM' row = is_item-sttit field = 'ZBOMG_CODE'
@@ -1831,7 +1831,7 @@ FORM cont_save_all CHANGING cs_doc    TYPE gty_cont_doc
       APPEND ls_commit TO ct_return.
     ENDIF.
     APPEND VALUE #( type = 'E'
-                    message = |Không lưu được đơn mua hàng và hợp đồng, toàn bộ dữ liệu đã được hủy. Vui lòng báo bộ phận IT (lỗi cập nhật SM13).| )
+                    message = |Không lưu được đơn mua hàng và hợp đồng, toàn bộ dữ liệu đã được hủy. Vui lòng báo bộ phận IT.| )
       TO ct_return.
     CLEAR cv_ebeln.
     RETURN.

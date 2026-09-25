@@ -8,6 +8,7 @@
 *   bp_build_partner  BP: dữ liệu chung, địa chỉ, liên lạc, role
 *   bp_build_vendor   nhà cung cấp: company code (LFB1), purchasing (LFM1)
 *   bp_maintain       gọi API, gom thông báo, COMMIT / ROLLBACK
+*   bp_readable_message  thông báo SAP có tên field / bảng -> câu có nhãn
 * Chế độ đổi (IV_SUPPLIER đã có):
 *   bp_read_existing  đọc BP / địa chỉ / role / công ty / tổ chức mua đã có
 *   bp_build_change   chỉ đổi ô được truyền; công ty / tổ chức mua / role
@@ -175,8 +176,10 @@ FORM bp_maintain USING    it_data     TYPE cvis_ei_extern_t
   DATA lt_msg TYPE bapiret2_t.
   LOOP AT lt_result INTO DATA(ls_result).
     LOOP AT ls_result-object_msg INTO DATA(ls_msg).
-      IF NOT line_exists( lt_msg[ type = ls_msg-type id = ls_msg-id number = ls_msg-number message = ls_msg-message ] ).
-        APPEND CORRESPONDING #( ls_msg ) TO lt_msg.
+      DATA(ls_ret) = CORRESPONDING bapiret2( ls_msg ).
+      PERFORM bp_readable_message CHANGING ls_ret.
+      IF ls_ret IS NOT INITIAL AND NOT line_exists( lt_msg[ type = ls_ret-type message = ls_ret-message ] ).
+        APPEND ls_ret TO lt_msg.
       ENDIF.
       IF ls_msg-type CA 'EAX'.
         lv_has_err = abap_true.
@@ -420,4 +423,103 @@ FORM bp_build_change USING    is_supplier TYPE zctd_s_bp_supplier
         TO cs_data-vendor-purchasing_data-purchasing.
     ENDIF.
   ENDLOOP.
+ENDFORM.
+
+*======================================================================*
+* Thông báo chuẩn SAP có tên field / bảng kỹ thuật -> câu tiếng Việt có
+* nhãn nghiệp vụ. Giữ ID / NUMBER / MESSAGE_V1..V4 gốc để tra cứu.
+*======================================================================*
+FORM bp_readable_message CHANGING cs_msg TYPE bapiret2.
+  DATA: lv_field TYPE string,
+        lv_label TYPE string.
+
+  CASE cs_msg-id.
+    WHEN 'CVI_API'.
+      " &1 = FIELD hoặc TABLE-FIELD
+      lv_field = cs_msg-message_v1.
+      IF lv_field CS '-'.
+        SPLIT lv_field AT '-' INTO DATA(lv_tab) lv_field.
+      ENDIF.
+      PERFORM bp_field_label USING lv_field CHANGING lv_label.
+      CASE cs_msg-number.
+        WHEN '001'.
+          cs_msg-message = |{ lv_label }: giá trị không hợp lệ.|.
+        WHEN '007'.
+          cs_msg-message = |{ lv_label }: dữ liệu không hợp lệ, vui lòng kiểm tra lại.|.
+      ENDCASE.
+    WHEN '00'.
+      " 058: Entry &1 &2 &3 does not exist in &4 (check entry) - &1..&3 = khóa, &4 = bảng
+      IF cs_msg-number = '058'.
+        PERFORM bp_table_label USING cs_msg-message_v4 CHANGING lv_label.
+        cs_msg-message = |Giá trị { condense( |{ cs_msg-message_v1 } { cs_msg-message_v2 } { cs_msg-message_v3 }| ) } không tồn tại trong danh mục { lv_label }.|.
+      ENDIF.
+    WHEN 'BUPA_INTERFACE'.
+      " 007: Partner data processed with key PartnerGUID ... - thông tin nội bộ, bỏ
+      IF cs_msg-number = '007'.
+        CLEAR cs_msg.
+      ENDIF.
+  ENDCASE.
+ENDFORM.
+
+FORM bp_field_label USING    iv_field TYPE string
+                    CHANGING cv_label TYPE string.
+  cv_label = SWITCH #( to_upper( iv_field )
+    WHEN 'BUKRS'            THEN `Công ty`
+    WHEN 'AKONT'            THEN `Tài khoản đối chiếu`
+    WHEN 'ZTERM'            THEN `Điều khoản thanh toán`
+    WHEN 'ZWELS'            THEN `Phương thức thanh toán`
+    WHEN 'FDGRV'            THEN `Nhóm kế hoạch dòng tiền`
+    WHEN 'REPRF'            THEN `Kiểm tra trùng hóa đơn`
+    WHEN 'EKORG'            THEN `Tổ chức mua hàng`
+    WHEN 'WAERS'            THEN `Tiền tệ đặt hàng`
+    WHEN 'WEBRE'            THEN `Kiểm tra hóa đơn theo nhập kho`
+    WHEN 'KALSK'            THEN `Nhóm lược đồ nhà cung cấp`
+    WHEN 'NAME1' OR 'NAME_ORG1' THEN `Tên nhà cung cấp`
+    WHEN 'COUNTRY' OR 'LAND1'   THEN `Quốc gia`
+    WHEN 'REGION' OR 'REGIO'    THEN `Tỉnh/thành`
+    WHEN 'POSTL_COD1' OR 'POST_CODE1' OR 'PSTLZ' THEN `Mã bưu chính`
+    WHEN 'CITY' OR 'CITY1' OR 'ORT01'            THEN `Thành phố`
+    WHEN 'STREET' OR 'STRAS'                     THEN `Đường`
+    WHEN 'LANGU' OR 'SPRAS' OR 'PARTNERLANGUAGE' THEN `Ngôn ngữ`
+    WHEN 'TELEPHONE' OR 'TEL_NUMBER' OR 'TELF1'  THEN `Điện thoại`
+    WHEN 'E_MAIL' OR 'SMTP_ADDR'                 THEN `E-mail`
+    WHEN 'GROUPING' OR 'BU_GROUP'                THEN `Nhóm đối tác`
+    WHEN 'KTOKK'            THEN `Nhóm tài khoản nhà cung cấp`
+    WHEN 'STCD1'            THEN `Mã số thuế`
+    ELSE `` ).
+  IF cv_label IS INITIAL.
+    " field khác: lấy nhãn của data element trên bảng nhà cung cấp
+    SELECT SINGLE t~scrtext_l FROM dd03l AS f
+      INNER JOIN dd04t AS t ON t~rollname = f~rollname AND t~as4local = 'A' AND t~ddlanguage = @sy-langu
+      WHERE f~tabname IN ( 'LFB1', 'LFM1', 'LFA1', 'BUT000', 'ADRC' ) AND f~fieldname = @iv_field AND f~as4local = 'A'
+      INTO @cv_label.
+    IF cv_label IS INITIAL.
+      cv_label = iv_field.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+FORM bp_table_label USING    iv_table TYPE csequence
+                    CHANGING cv_label TYPE string.
+  cv_label = SWITCH #( to_upper( condense( CONV string( iv_table ) ) )
+    WHEN 'T001'  THEN `công ty`
+    WHEN 'SKB1'  THEN `tài khoản kế toán của công ty`
+    WHEN 'T024E' THEN `tổ chức mua hàng`
+    WHEN 'T052'  THEN `điều khoản thanh toán`
+    WHEN 'TCURC' THEN `tiền tệ`
+    WHEN 'T005'  THEN `quốc gia`
+    WHEN 'T005S' THEN `tỉnh/thành`
+    WHEN 'T042Z' THEN `phương thức thanh toán`
+    WHEN 'T035'  THEN `nhóm kế hoạch dòng tiền`
+    WHEN 'TB001' THEN `nhóm đối tác`
+    WHEN 'T077K' THEN `nhóm tài khoản nhà cung cấp`
+    ELSE `` ).
+  IF cv_label IS INITIAL.
+    SELECT SINGLE ddtext FROM dd02t
+      WHERE tabname = @iv_table AND ddlanguage = @sy-langu AND as4local = 'A'
+      INTO @cv_label.
+    IF cv_label IS INITIAL.
+      cv_label = iv_table.
+    ENDIF.
+  ENDIF.
 ENDFORM.
