@@ -1,0 +1,9 @@
+# MCP-RFC bridge dependencies
+mcp>=1.2,<2
+python-dotenv>=1.0
+
+# pyrfc has no PyPI wheel for recent Python. Install the vendored wheel:
+#   python -m pip install vendor/pyrfc-3.3.1-cp312-cp312-win_amd64.whl
+# It needs the SAP NW RFC SDK, which is bundled in vendor/nwrfcsdk/ and
+# auto-detected at runtime. See README.md.
+pyrfc>=3.3

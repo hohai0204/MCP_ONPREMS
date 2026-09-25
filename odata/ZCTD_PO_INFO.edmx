@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns:sap="http://www.sap.com/Protocols/SAPData">
+  <edmx:DataServices m:DataServiceVersion="2.0">
+    <Schema Namespace="ZCTD_PO_INFO_SRV" xml:lang="en" sap:schema-version="1" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+      <EntityType Name="POHeader" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="PONumber"/>
+        </Key>
+        <Property Name="PONumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="PO Number" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="POType" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="PO Type" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="VendorCode" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Vendor" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="VendorName" Type="Edm.String" Nullable="true" MaxLength="120" sap:unicode="false" sap:label="Vendor Name" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ProjectCode" Type="Edm.String" Nullable="true" MaxLength="24" sap:unicode="false" sap:label="Project" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ProjectName" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Project Name" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="WBSCode" Type="Edm.String" Nullable="true" MaxLength="24" sap:unicode="false" sap:label="Contract WBS" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="TenderPackage" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Tender Package" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ContractNo" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Contract No." sap:creatable="false" sap:updatable="false"/>
+        <Property Name="PRNumber" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="PR Number" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="DocumentDate" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Document Date" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="DeliveryDate" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Delivery Date" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Currency" Type="Edm.String" Nullable="true" MaxLength="5" sap:unicode="false" sap:label="Currency" sap:creatable="false" sap:updatable="false" sap:semantics="currency-code"/>
+        <Property Name="ExchangeRate" Type="Edm.Decimal" Nullable="true" Precision="9" Scale="5" sap:unicode="false" sap:label="Exchange Rate" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Subtotal" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Subtotal" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="TaxAmount" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Tax Amount" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="TotalAmount" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Total Amount" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Status" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="Status" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ReleaseStatus" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="Release Status" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ChangedAt" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="Changed At" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="SourceVersion" Type="Edm.String" Nullable="true" MaxLength="30" sap:unicode="false" sap:label="Source Version" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Note" Type="Edm.String" Nullable="true" MaxLength="1000" sap:unicode="false" sap:label="Note" sap:creatable="false" sap:updatable="false"/>
+        <NavigationProperty Name="Detail" Relationship="ZCTD_PO_INFO_SRV.POHeaderToItems" FromRole="FromRole_POHeaderToItems" ToRole="ToRole_POHeaderToItems"/>
+      </EntityType>
+      <EntityType Name="POItem" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="PONumber"/>
+          <PropertyRef Name="Item"/>
+        </Key>
+        <Property Name="PONumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="PO Number" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Item" Type="Edm.String" Nullable="false" MaxLength="5" sap:unicode="false" sap:label="Item" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="PRNumber" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="PR Number" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="PRItem" Type="Edm.String" Nullable="true" MaxLength="5" sap:unicode="false" sap:label="PR Item" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="WBS" Type="Edm.String" Nullable="true" MaxLength="24" sap:unicode="false" sap:label="WBS" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="WBSName" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="WBS Name" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="BOMG" Type="Edm.String" Nullable="true" MaxLength="16" sap:unicode="false" sap:label="BOMG" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="BOMGName" Type="Edm.String" Nullable="true" MaxLength="100" sap:unicode="false" sap:label="BOMG Name" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Material" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Material" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Description" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Description" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Quantity" Type="Edm.Decimal" Nullable="true" Precision="13" Scale="3" sap:unicode="false" sap:label="Quantity" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="UOM" Type="Edm.String" Nullable="true" MaxLength="3" sap:unicode="false" sap:label="Unit" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="UnitPrice" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Unit Price" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="PriceUnit" Type="Edm.Decimal" Nullable="true" Precision="5" Scale="0" sap:unicode="false" sap:label="Price Unit" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Amount" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Amount" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="VatRate" Type="Edm.Decimal" Nullable="true" Precision="5" Scale="2" sap:unicode="false" sap:label="VAT Rate" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="DeliveryDate" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Delivery Date" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Plant" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Plant" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="StorageLocation" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Storage Location" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="DeleteIndicator" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Deletion Ind." sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Return" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Return Item" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Disable" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Disabled" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="Brand" Type="Edm.String" Nullable="true" MaxLength="70" sap:unicode="false" sap:label="Brand" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="ItemStatus" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Item Status" sap:creatable="false" sap:updatable="false"/>
+      </EntityType>
+      <EntityType Name="POJson" m:HasStream="true" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="PONumber"/>
+        </Key>
+        <Property Name="PONumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="PO Number (ALL = list)" sap:creatable="false" sap:updatable="false"/>
+        <Property Name="MimeType" Type="Edm.String" MaxLength="100" sap:unicode="false" sap:label="Mime Type" sap:creatable="false" sap:updatable="false"/>
+      </EntityType>
+      <Association Name="POHeaderToItems" sap:content-version="1">
+        <End Type="ZCTD_PO_INFO_SRV.POHeader" Multiplicity="1" Role="FromRole_POHeaderToItems"/>
+        <End Type="ZCTD_PO_INFO_SRV.POItem" Multiplicity="*" Role="ToRole_POHeaderToItems"/>
+        <ReferentialConstraint>
+          <Principal Role="FromRole_POHeaderToItems">
+            <PropertyRef Name="PONumber"/>
+          </Principal>
+          <Dependent Role="ToRole_POHeaderToItems">
+            <PropertyRef Name="PONumber"/>
+          </Dependent>
+        </ReferentialConstraint>
+      </Association>
+      <EntityContainer Name="ZCTD_PO_INFO_SRV_Entities" m:IsDefaultEntityContainer="true" sap:supported-formats="atom json xlsx">
+        <EntitySet Name="POHeaderSet" EntityType="ZCTD_PO_INFO_SRV.POHeader" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:content-version="1"/>
+        <EntitySet Name="POItemSet" EntityType="ZCTD_PO_INFO_SRV.POItem" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:content-version="1"/>
+        <EntitySet Name="POJsonSet" EntityType="ZCTD_PO_INFO_SRV.POJson" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:content-version="1"/>
+        <AssociationSet Name="POHeaderToItemsSet" Association="ZCTD_PO_INFO_SRV.POHeaderToItems" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+          <End EntitySet="POHeaderSet" Role="FromRole_POHeaderToItems"/>
+          <End EntitySet="POItemSet" Role="ToRole_POHeaderToItems"/>
+        </AssociationSet>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns:sap="http://www.sap.com/Protocols/SAPData">
+  <edmx:DataServices m:DataServiceVersion="2.0">
+    <Schema Namespace="ZCTD_CORE_INT_SRV" xml:lang="en" sap:schema-version="1" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+      <EntityType Name="Vendor" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="Supplier"/>
+        </Key>
+        <Property Name="Supplier" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Supplier"/>
+        <Property Name="BusinessPartner" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Business Partner"/>
+        <Property Name="BPGrouping" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="BP Grouping"/>
+        <Property Name="AccountGroup" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Account Group"/>
+        <Property Name="Name1" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Name"/>
+        <Property Name="Name2" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Name 2"/>
+        <Property Name="SearchTerm" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="Search Term"/>
+        <Property Name="Street" Type="Edm.String" Nullable="true" MaxLength="60" sap:unicode="false" sap:label="Street"/>
+        <Property Name="City" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="City"/>
+        <Property Name="PostalCode" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Postal Code"/>
+        <Property Name="Region" Type="Edm.String" Nullable="true" MaxLength="3" sap:unicode="false" sap:label="Region"/>
+        <Property Name="Country" Type="Edm.String" Nullable="true" MaxLength="3" sap:unicode="false" sap:label="Country"/>
+        <Property Name="Language" Type="Edm.String" Nullable="true" MaxLength="2" sap:unicode="false" sap:label="Language"/>
+        <Property Name="Telephone" Type="Edm.String" Nullable="true" MaxLength="30" sap:unicode="false" sap:label="Telephone"/>
+        <Property Name="Email" Type="Edm.String" Nullable="true" MaxLength="241" sap:unicode="false" sap:label="E-Mail"/>
+        <Property Name="TaxNumber1" Type="Edm.String" Nullable="true" MaxLength="16" sap:unicode="false" sap:label="Tax Number 1"/>
+        <Property Name="VATNumber" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="VAT Number"/>
+        <Property Name="PostingBlock" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Central Posting Block"/>
+        <Property Name="PurchasingBlock" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Central Purchasing Block"/>
+        <Property Name="DeletionFlag" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Deletion Flag"/>
+        <Property Name="CreatedOn" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Created On"/>
+        <Property Name="CreatedBy" Type="Edm.String" Nullable="true" MaxLength="12" sap:unicode="false" sap:label="Created By"/>
+      </EntityType>
+      <EntityType Name="PurchaseReq" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="PRNumber"/>
+        </Key>
+        <Property Name="PRNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Purchase Requisition"/>
+        <Property Name="PRType" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="PR Type"/>
+        <Property Name="CreatedBy" Type="Edm.String" Nullable="true" MaxLength="12" sap:unicode="false" sap:label="Created By"/>
+        <Property Name="CreatedOn" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Created On"/>
+        <Property Name="RequestDate" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Request Date"/>
+        <Property Name="Requisitioner" Type="Edm.String" Nullable="true" MaxLength="12" sap:unicode="false" sap:label="Requisitioner"/>
+        <Property Name="TrackingNo" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Tracking Number"/>
+        <Property Name="ReleaseStrategy" Type="Edm.String" Nullable="true" MaxLength="2" sap:unicode="false" sap:label="Release Strategy"/>
+        <Property Name="ReleaseIndicator" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Release Indicator"/>
+        <Property Name="ItemCount" Type="Edm.Int32" Nullable="true" sap:unicode="false" sap:label="Number of Items"/>
+        <Property Name="TotalValue" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Total Value"/>
+        <Property Name="Currency" Type="Edm.String" Nullable="true" MaxLength="5" sap:unicode="false" sap:label="Currency"/>
+        <NavigationProperty Name="Items" Relationship="ZCTD_CORE_INT_SRV.PurchaseReqToItems" FromRole="FromRole_PurchaseReqToItems" ToRole="ToRole_PurchaseReqToItems"/>
+      </EntityType>
+      <EntityType Name="PurchaseReqItem" sap:content-version="1">
+        <Key>
+          <PropertyRef Name="PRNumber"/>
+          <PropertyRef Name="Item"/>
+        </Key>
+        <Property Name="PRNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Purchase Requisition"/>
+        <Property Name="Item" Type="Edm.String" Nullable="false" MaxLength="5" sap:unicode="false" sap:label="Item"/>
+        <Property Name="Material" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Material"/>
+        <Property Name="ShortText" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Short Text"/>
+        <Property Name="MaterialGroup" Type="Edm.String" Nullable="true" MaxLength="9" sap:unicode="false" sap:label="Material Group"/>
+        <Property Name="Plant" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Plant"/>
+        <Property Name="StorageLocation" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Storage Location"/>
+        <Property Name="Quantity" Type="Edm.Decimal" Nullable="true" Precision="13" Scale="3" sap:unicode="false" sap:label="Quantity"/>
+        <Property Name="UOM" Type="Edm.String" Nullable="true" MaxLength="3" sap:unicode="false" sap:label="Unit"/>
+        <Property Name="DeliveryDate" Type="Edm.String" Nullable="true" MaxLength="8" sap:unicode="false" sap:label="Delivery Date"/>
+        <Property Name="ValuationPrice" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Valuation Price"/>
+        <Property Name="PriceUnit" Type="Edm.Decimal" Nullable="true" Precision="5" Scale="0" sap:unicode="false" sap:label="Price Unit"/>
+        <Property Name="Currency" Type="Edm.String" Nullable="true" MaxLength="5" sap:unicode="false" sap:label="Currency"/>
+        <Property Name="ItemValue" Type="Edm.Decimal" Nullable="true" Precision="23" Scale="2" sap:unicode="false" sap:label="Item Value"/>
+        <Property Name="PurchasingGroup" Type="Edm.String" Nullable="true" MaxLength="3" sap:unicode="false" sap:label="Purchasing Group"/>
+        <Property Name="PurchasingOrg" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Purchasing Org."/>
+        <Property Name="AcctAssignCategory" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Acct Assignment Cat."/>
+        <Property Name="ItemCategory" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Item Category"/>
+        <Property Name="WBSElement" Type="Edm.String" Nullable="true" MaxLength="24" sap:unicode="false" sap:label="WBS Element"/>
+        <Property Name="ReleaseIndicator" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Release Indicator"/>
+        <Property Name="ProcessingStatus" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Processing Status"/>
+        <Property Name="DeletionIndicator" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Deletion Indicator"/>
+        <Property Name="Closed" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Closed"/>
+        <Property Name="PONumber" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="PO Number"/>
+        <Property Name="POItem" Type="Edm.String" Nullable="true" MaxLength="5" sap:unicode="false" sap:label="PO Item"/>
+        <Property Name="Requisitioner" Type="Edm.String" Nullable="true" MaxLength="12" sap:unicode="false" sap:label="Requisitioner"/>
+        <Property Name="TrackingNo" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Tracking Number"/>
+      </EntityType>
+      <Association Name="PurchaseReqToItems" sap:content-version="1">
+        <End Type="ZCTD_CORE_INT_SRV.PurchaseReq" Multiplicity="1" Role="FromRole_PurchaseReqToItems"/>
+        <End Type="ZCTD_CORE_INT_SRV.PurchaseReqItem" Multiplicity="*" Role="ToRole_PurchaseReqToItems"/>
+        <ReferentialConstraint>
+          <Principal Role="FromRole_PurchaseReqToItems"><PropertyRef Name="PRNumber"/></Principal>
+          <Dependent Role="ToRole_PurchaseReqToItems"><PropertyRef Name="PRNumber"/></Dependent>
+        </ReferentialConstraint>
+      </Association>
+      <EntityContainer Name="ZCTD_CORE_INT_SRV_Entities" m:IsDefaultEntityContainer="true" sap:supported-formats="atom json xlsx">
+        <EntitySet Name="VendorSet" EntityType="ZCTD_CORE_INT_SRV.Vendor" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
+        <EntitySet Name="PurchaseReqSet" EntityType="ZCTD_CORE_INT_SRV.PurchaseReq" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
+        <EntitySet Name="PurchaseReqItemSet" EntityType="ZCTD_CORE_INT_SRV.PurchaseReqItem" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="true" sap:content-version="1"/>
+        <AssociationSet Name="PurchaseReqToItemsSet" Association="ZCTD_CORE_INT_SRV.PurchaseReqToItems" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+          <End EntitySet="PurchaseReqSet" Role="FromRole_PurchaseReqToItems"/>
+          <End EntitySet="PurchaseReqItemSet" Role="ToRole_PurchaseReqToItems"/>
+        </AssociationSet>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

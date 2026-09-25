@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "ZCTD_CORE_INT_SRV - CTD Core integration",
+    "description": "OData V2 tích hợp CTD Core. Gọi qua cầu nối cục bộ: python scripts/gw_local_proxy.py (GET client 100/360, POST chỉ client 100). Mỗi response có header correlation-id; mọi lần gọi ghi log vào ZCTD_T_API_LOG.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8765/sap/opu/odata/sap/ZCTD_CORE_INT_SRV"
+    },
+    {
+      "key": "client",
+      "value": "360"
+    },
+    {
+      "key": "supplier",
+      "value": "800000"
+    },
+    {
+      "key": "pr",
+      "value": "3100003115"
+    }
+  ],
+  "item": [
+    {
+      "name": "$metadata",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}"
+        },
+        "description": ""
+      }
+    },
+    {
+      "name": "Vendor",
+      "item": [
+        {
+          "name": "Danh sách (top 20, đếm tổng)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Theo mã",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet('{{supplier}}')?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc quốc gia + ngày tạo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=Country eq 'VN' and CreatedOn ge '20260101'&$top=50"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc bằng tham số URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&Country=VN&AccountGroup=Z099,Z001&$top=50"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Tìm theo tên (chứa)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=substringof('XÂY DỰNG',Name1)&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Phân trang",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$top=20&$skip=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Tạo vendor - chạy thử (TestRun)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client=100&TestRun=X"
+            },
+            "description": "Chỉ kiểm tra, không lưu. Kết quả ở header sap-message."
+          }
+        },
+        {
+          "name": "Tạo vendor - lưu thật",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client=100"
+            },
+            "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Purchase Requisition",
+      "item": [
+        {
+          "name": "Danh sách PR (top 20, đếm tổng)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$top=20&$inlinecount=allpages"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "PR theo số",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "PR kèm dòng ($expand)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')?sap-client={{client}}&$format=json&$expand=Items"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Dòng của PR (navigation)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet('{{pr}}')/Items?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Một dòng PR",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqItemSet(PRNumber='{{pr}}',Item='00010')?sap-client={{client}}&$format=json"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lọc loại PR + ngày tạo ($filter) + plant (tham số URL), kèm dòng",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&$filter=PRType eq 'ZPR2' and CreatedOn ge '20250101'&Plant=1100&$expand=Items&$top=20"
+            },
+            "description": "Field của dòng (Plant, Material, PurchasingGroup, PurchasingOrg) không có trong PurchaseReq nên truyền bằng tham số URL; nhiều giá trị cách nhau dấu phẩy."
+          }
+        },
+        {
+          "name": "Lọc theo vật tư (tham số URL, nhiều giá trị)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqSet?sap-client={{client}}&$format=json&Material=10000037,10000038&$top=20"
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Dòng PR lọc theo plant ($filter trên item)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/PurchaseReqItemSet?sap-client={{client}}&$format=json&$filter=Plant eq '2100'&$top=50"
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ]
+}

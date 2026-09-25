@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:community.sap.com)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*__(sap_write_program|sap_activate|sap_run_rfc|sap_adt_dispatch|sap_textpool_write|sap_write_ddic|sap_delete_ddic|sap_activate_ddic)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\scripts\\hooks\\guard-sap-writes.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

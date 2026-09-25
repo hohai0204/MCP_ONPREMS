@@ -1,0 +1,22 @@
+# --- secrets: real SAP logon (user/password/host) - keep only *.example ---
+mcp/profiles/*.env
+!mcp/profiles/*.env.example
+*.env.local
+.claude/settings.local.json
+
+# --- SAP NW RFC SDK: SAP license forbids redistribution; install it locally
+#     (SAPNWRFC_HOME or mcp/vendor/nwrfcsdk) - see README
+mcp/vendor/nwrfcsdk/
+
+# --- runtime output / local state ---
+dev_rfc.log
+*.log
+harness.db
+harness.db-*
+.harness/
+exports/
+~$*
+__pycache__/
+*.pyc
+.venv/
+venv/

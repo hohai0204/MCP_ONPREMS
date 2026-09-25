@@ -1,0 +1,38 @@
+{
+  // Offline ABAP static analysis (validation ladder step 0).
+  // Lenient on purpose: parser-level checks + a few high-value rules.
+  // check_syntax is OFF because it needs full DDIC/standard-object
+  // dependencies to avoid false "not found" errors over RFC-only sources.
+  "global": {
+    "files": "/abap/**/*.abap",
+    "skipGeneratedGatewayClasses": true,
+    "skipGeneratedPersistentClasses": true,
+    "skipGeneratedFunctionGroups": true
+  },
+  "dependencies": [],
+  "syntax": {
+    "version": "v755",
+    "errorNamespace": "^(Z|Y|LCL_|LIF_|TY_)"
+  },
+  "rules": {
+    "parser_error": true,
+    "7bit_ascii": true,
+    "line_length": {
+      "length": 255
+    },
+    "obsolete_statement": {
+      "refresh": true,
+      "compute": true,
+      "add": true,
+      "subtract": true,
+      "multiply": true,
+      "divide": true,
+      "move": true
+    },
+    "exit_or_check": true,
+    "empty_statement": true,
+    "space_before_dot": true,
+    "when_others_last": true,
+    "unreachable_code": true
+  }
+}

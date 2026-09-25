@@ -1,0 +1,126 @@
+{
+  "info": {
+    "name": "ZCTD_PO_INFO_SRV",
+    "description": "OData ZCTD_PO_INFO_SRV (SEGW). baseUrl mặc định = cầu nối cục bộ (chạy: python scripts/gw_local_proxy.py) khi máy không có đường HTTP tới SAP. Khi có VPN/mạng nội bộ đổi baseUrl thành http://<sap-host>:<icm-port>/sap/opu/odata/sap/ZCTD_PO_INFO_SRV và điền user/password.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "{{user}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{password}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8765/sap/opu/odata/sap/ZCTD_PO_INFO_SRV"
+    },
+    {
+      "key": "client",
+      "value": "360"
+    },
+    {
+      "key": "user",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "po",
+      "value": "4100032903"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. JSON mẫu - 1 PO ($value)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/POJsonSet('{{po}}')/$value?sap-client={{client}}"
+        }
+      }
+    },
+    {
+      "name": "2. JSON mẫu - danh sách, không lọc ($value)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&top=20"
+        }
+      }
+    },
+    {
+      "name": "3. JSON mẫu - danh sách có lọc ($value)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&DocumentDateFrom=20260801&DocumentDateTo=20260930&top=50&skip=0"
+        }
+      }
+    },
+    {
+      "name": "3b. JSON mẫu - PO nhiều dòng (MinItems)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/POJsonSet('ALL')/$value?sap-client={{client}}&POType=ZP01&MinItems=5&DocumentDateFrom=20260801&top=20"
+        }
+      }
+    },
+    {
+      "name": "4. OData - header + Detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/POHeaderSet('{{po}}')?$expand=Detail&$format=json&sap-client={{client}}"
+        }
+      }
+    },
+    {
+      "name": "5. OData - danh sách có lọc + tổng số",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/POHeaderSet?$filter=POType eq 'ZP01'&$expand=Detail&$top=10&$inlinecount=allpages&$format=json&sap-client={{client}}"
+        }
+      }
+    },
+    {
+      "name": "6. $metadata",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/$metadata?sap-client={{client}}"
+        }
+      }
+    }
+  ]
+}
