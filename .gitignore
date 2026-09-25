@@ -7,6 +7,7 @@ mcp/profiles/*.env
 # --- SAP NW RFC SDK: SAP license forbids redistribution; install it locally
 #     (SAPNWRFC_HOME or mcp/vendor/nwrfcsdk) - see README
 mcp/vendor/nwrfcsdk/
+mcp/vendor/nwrfcsdk-macos/
 
 # --- runtime output / local state ---
 dev_rfc.log
@@ -20,3 +21,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# SAP RFC SDK trace files
+rfc*.trc
