@@ -79,6 +79,23 @@ def _fm_denylist() -> list[str]:
     return _DEFAULT_FM_DENYLIST
 
 
+# ---------------------------------------------------------------------------
+# read-only FM allowlist for sap_run_rfc. run_rfc is a write-class tool, so a
+# read-only profile (SAP_ALLOW_WRITE=false, e.g. the client with real data)
+# cannot call even harmless FMs. SAP_RFC_READONLY_ALLOW lists FMs (comma-
+# separated, * wildcards) that a read-only profile may call anyway. Empty by
+# default. Only list FMs that never change data; the deny list still applies.
+# ---------------------------------------------------------------------------
+def _rfc_readonly_allowlist() -> list[str]:
+    env = (os.getenv("SAP_RFC_READONLY_ALLOW") or "").strip()
+    return [p.strip().upper() for p in env.split(",") if p.strip()]
+
+
+def _rfc_readonly_allowed(function_name: str) -> bool:
+    fm = function_name.upper()
+    return any(fnmatch.fnmatch(fm, pat) for pat in _rfc_readonly_allowlist())
+
+
 def _check_fm_allowed(function_name: str) -> None:
     fm = function_name.upper()
     for pat in _fm_denylist():
@@ -208,8 +225,40 @@ def read_table(
 # ---------------------------------------------------------------------------
 # repository read
 # ---------------------------------------------------------------------------
-def read_program(program: str) -> dict:
-    """Read ABAP report/program source via RPY_PROGRAM_READ."""
+def read_program(program: str, state: str = "A") -> dict:
+    """Read ABAP report/program source.
+
+    state "A" (default) = active version, "I" = inactive version (saved, not yet
+    activated), "latest" = inactive if it exists, else active. Versions are read
+    with ZMCP_ADT_DISPATCH READ_PROGRAM. RPY_PROGRAM_READ is only the fallback for
+    "A" when the dispatcher lacks that action: it returns the caller's inactive
+    version when there is one, so it is not a reliable "active" read.
+    """
+    st = (state or "A").upper()
+    name = program.upper()
+
+    def _dispatch(ver: str) -> list[str] | None:
+        try:
+            res = adt_dispatch("READ_PROGRAM", {"name": name, "state": ver})
+        except SapConnectionError as exc:
+            if "no version in state" in str(exc):
+                return []
+            return None  # dispatcher not updated: caller falls back
+        return (res.get("result") or {}).get("LINES") or []
+
+    if st in ("I", "LATEST"):
+        lines = _dispatch("I")
+        if lines is None:
+            raise SapConnectionError(
+                "ZMCP_ADT_DISPATCH has no READ_PROGRAM action - reinstall abap/zmcp_adt_dispatch.abap"
+            )
+        if lines or st == "I":
+            return {"program": name, "state": "I", "line_count": len(lines),
+                    "source": "\n".join(lines)}
+    lines = _dispatch("A")
+    if lines is not None:
+        return {"program": name, "state": "A", "line_count": len(lines),
+                "source": "\n".join(lines)}
     res = get_client().call(
         "RPY_PROGRAM_READ",
         PROGRAM_NAME=program.upper(),
@@ -624,12 +673,12 @@ def where_used(name: str, max_rows: int = 100) -> dict:
 _DISPATCH_FM = "ZMCP_ADT_DISPATCH"
 _DISPATCH_READ_ACTIONS = {
     "DYNPRO_READ", "CUA_FETCH",
-    "SYNTAX_CHECK", "READ_DDLS",
+    "SYNTAX_CHECK", "READ_DDLS", "READ_PROGRAM",
     "RUN_UNIT_TESTS", "ATC_CHECK",
 }
 _DISPATCH_WRITE_ACTIONS = {
     "DYNPRO_INSERT", "DYNPRO_DELETE", "CUA_WRITE", "CUA_DELETE",
-    "ACTIVATE",
+    "ACTIVATE", "MOVE_OBJECTS",
 }
 
 # Text elements have their own dedicated FM (ZMCP_ADT_TEXTPOOL), which supports
@@ -651,11 +700,12 @@ def adt_dispatch(action: str, params: dict | None = None) -> dict:
     )
     subrc = res.get("EV_SUBRC", 0)
     message = res.get("EV_MESSAGE", "")
-    if subrc != 0:
-        raise SapConnectionError(
-            f"{_DISPATCH_FM} action {act} failed (subrc={subrc}): {message}"
-        )
     raw = res.get("EV_RESULT", "")
+    if subrc != 0:
+        detail = f" | result: {raw[:1500]}" if raw and raw != '{"activated":false}' else ""
+        raise SapConnectionError(
+            f"{_DISPATCH_FM} action {act} failed (subrc={subrc}): {message}{detail}"
+        )
     try:
         result = json.loads(raw) if raw else None
     except ValueError:
@@ -699,6 +749,28 @@ def activate(objects: list[dict]) -> dict:
     CLAS=class, FUGR/FUNC=function, DYNP=screen, CUAD=gui status, DDLS=cds.
     """
     return adt_dispatch("ACTIVATE", {"objects": objects})
+
+
+def move_objects(objects: list[dict], package: str, transport: str) -> dict:
+    """Move repository objects to a real package and record them in a transport,
+    without dialogs. Requires SAP_ALLOW_WRITE=true (DEV systems only).
+
+    `objects` is a list of {"type": <R3TR type>, "name": <obj>}, e.g.
+    [{"type":"CLAS","name":"ZCL_FOO"},{"type":"IWSV","name":"ZFOO_SRV"}]. IWMO/IWSV
+    names have a padded version suffix; a unique prefix is enough. `transport` is
+    the request (or task) that must be modifiable; objects land in the caller's
+    task. `package` must not be $TMP. Uses ZMCP_ADT_DISPATCH MOVE_OBJECTS.
+    """
+    if not (package or "").strip() or package.strip().upper() == "$TMP":
+        raise SapConnectionError("move_objects needs a real target package, not $TMP.")
+    if not (transport or "").strip():
+        raise SapConnectionError("move_objects needs a transport request.")
+    _require_write()
+    _check_devclass_allowed(package)
+    return adt_dispatch(
+        "MOVE_OBJECTS",
+        {"objects": objects, "package": package.upper(), "transport": transport.upper()},
+    )
 
 
 def read_cds(name: str, state: str = "A") -> dict:
@@ -818,28 +890,68 @@ def _check_package_allowed(program: str, create: bool) -> None:
         )
 
 
-def write_program(program: str, source: str, create: bool = False) -> dict:
+def write_program(
+    program: str, source: str, create: bool = False, title: str = ""
+) -> dict:
     """Create or update an ABAP program's source. Requires SAP_ALLOW_WRITE=true.
 
-    Saved INACTIVE so nothing goes live until you explicitly activate it.
+    create=True: new program in $TMP that already holds the source (the source
+      is stored in both the active and inactive entry). It is not finished until
+      sap_activate runs: that sets the title, generates the program and drops
+      the leftover inactive entry. The package dialog is suppressed (without DEVELOPMENT_CLASS/SUPPRESS_DIALOG
+      RPY_PROGRAM_INSERT dies with DYNPRO_SEND_IN_BACKGROUND over RFC) and the
+      source goes in SOURCE_EXTENDED: on S4D the 144-wide SOURCE table is
+      silently ignored and an empty program is saved.
+    create=False: the source is syntax-checked first, then written ACTIVE via
+      SIW_RFC_WRITE_REPORT. RPY_PROGRAM_UPDATE is not remote-enabled and its
+      dispatcher wrapper empties the active version, so there is no safe
+      "save inactive" for an existing program. An old inactive version, if any,
+      is left untouched - do not activate it afterwards.
     """
     _require_write()
     _check_package_allowed(program, create)
-    lines = _source_to_lines(source)
-    fm = "RPY_PROGRAM_INSERT" if create else "RPY_PROGRAM_UPDATE"
-    kwargs: dict[str, Any] = {
-        "PROGRAM_NAME": program.upper(),
-        "SAVE_INACTIVE": "X",
-        "SOURCE": lines,
-    }
     if create:
-        # Minimal attributes for a new executable program.
-        kwargs["PROGRAM_TYPE"] = "1"  # 1 = executable report
-    res = get_client().call(fm, **kwargs)
+        res = get_client().call(
+            "RPY_PROGRAM_INSERT",
+            PROGRAM_NAME=program.upper(),
+            PROGRAM_TYPE="1",  # 1 = executable report
+            TITLE_STRING=(title or program).strip()[:70],
+            DEVELOPMENT_CLASS="$TMP",
+            SUPPRESS_DIALOG="X",
+            SAVE_INACTIVE="X",
+            SOURCE_EXTENDED=_source_to_lines(source, width=255),
+        )
+        return {
+            "program": program.upper(),
+            "action": "created",
+            "needs_activation": True,
+            "raw": res,
+        }
+    try:
+        check = syntax_check(source, program)
+    except SapConnectionError as exc:  # the dispatcher reports a syntax error as subrc 4
+        raise SapConnectionError(
+            f"Syntax check failed, {program.upper()} not updated: {exc}"
+        ) from exc
+    if not (check.get("result") or {}).get("ok"):
+        raise SapConnectionError(
+            f"Syntax check failed, {program.upper()} not updated: "
+            f"{check.get('message') or check.get('result')}"
+        )
+    name = program.upper()
+    res = get_client().call(
+        "SIW_RFC_WRITE_REPORT",
+        I_NAME=name,
+        I_OBJECT="PROG",
+        I_OBJNAME=name,
+        I_PROGTYPE="1",
+        I_TAB_CODE=[ln for ln in source.replace("\r\n", "\n").split("\n")],
+    )
     return {
-        "program": program.upper(),
-        "action": "created" if create else "updated",
-        "saved_inactive": True,
+        "program": name,
+        "action": "updated",
+        "needs_activation": False,
+        "active": True,
         "raw": res,
     }
 
@@ -848,10 +960,11 @@ def run_rfc(function_name: str, params: dict | None = None) -> dict:
     """Escape hatch: call an arbitrary remote-enabled FM with a params dict.
 
     Treated as a write operation (guarded) because arbitrary FMs may change
-    data. High-risk FMs are additionally blocked by the deny list. Use
+    data, unless the FM is on SAP_RFC_READONLY_ALLOW. High-risk FMs are additionally blocked by the deny list. Use
     deliberately.
     """
-    _require_write()
+    if not _rfc_readonly_allowed(function_name):
+        _require_write()
     _check_fm_allowed(function_name)
     return get_client().call(function_name.upper(), **(params or {}))
 

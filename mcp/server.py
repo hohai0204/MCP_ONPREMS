@@ -55,9 +55,12 @@ def sap_read_table(
 
 
 @mcp.tool()
-def sap_read_program(program: str) -> dict:
-    """Read the source code of an ABAP program/report by name."""
-    return _safe(tools.read_program, program)
+def sap_read_program(program: str, state: str = "A") -> dict:
+    """Read the source code of an ABAP program/report by name.
+
+    state: "A" active version (default), "I" inactive version (saved but not yet
+    activated), "latest" inactive if present else active."""
+    return _safe(tools.read_program, program, state)
 
 
 @mcp.tool()
@@ -228,6 +231,18 @@ def sap_activate(objects: list[dict]) -> dict:
 
 
 @mcp.tool()
+def sap_move_objects(objects: list[dict], package: str, transport: str) -> dict:
+    """Move repository objects (e.g. classes/SEGW objects sitting in $TMP) to a
+    real package and record them in a transport, with no dialogs. Requires
+    SAP_ALLOW_WRITE=true. Does not release or import anything.
+    objects: list of {"type": <R3TR type>, "name": <obj>}, e.g.
+    [{"type":"CLAS","name":"ZCL_FOO_DPC"},{"type":"IWSV","name":"ZFOO_SRV"}].
+    IWMO/IWSV names carry a padded version suffix - a unique prefix is enough.
+    package: target package (not $TMP). transport: modifiable request or task."""
+    return _safe(tools.move_objects, objects, package, transport)
+
+
+@mcp.tool()
 def sap_textpool_write(
     program: str,
     textpool: list[dict],
@@ -242,17 +257,24 @@ def sap_textpool_write(
 
 
 @mcp.tool()
-def sap_write_program(program: str, source: str, create: bool = False) -> dict:
-    """Create or update an ABAP program's source (saved INACTIVE).
+def sap_write_program(
+    program: str, source: str, create: bool = False, title: str = ""
+) -> dict:
+    """Create or update an ABAP program's source.
 
     Disabled unless SAP_ALLOW_WRITE=true. Intended for DEV systems only.
 
     Args:
         program: Program name (custom objects should start with Z/Y).
         source: Full ABAP source code.
-        create: True to create a new program, False to update an existing one.
+        create: True = new program in $TMP that already holds the source; call
+            sap_activate next to finish it (title, generation, drops the
+            leftover inactive entry). False = update an existing program: the
+            source is syntax-checked, then written ACTIVE and takes effect at
+            once (there is no safe inactive save for existing programs on S4D).
+        title: Program title for a new program (defaults to the program name).
     """
-    return _safe(tools.write_program, program, source, create)
+    return _safe(tools.write_program, program, source, create, title)
 
 
 @mcp.tool()
@@ -260,6 +282,8 @@ def sap_run_rfc(function_name: str, params: dict | None = None) -> dict:
     """Advanced: call an arbitrary remote-enabled function module.
 
     Disabled unless SAP_ALLOW_WRITE=true, because arbitrary FMs may change data.
+    Exception: FMs listed in SAP_RFC_READONLY_ALLOW may be called on a read-only
+    profile (that list must only contain FMs that never change data).
     """
     return _safe(tools.run_rfc, function_name, params)
 
