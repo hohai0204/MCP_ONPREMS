@@ -872,8 +872,10 @@ def write_program(
 ) -> dict:
     """Create or update an ABAP program's source. Requires SAP_ALLOW_WRITE=true.
 
-    create=True: new program in $TMP, saved INACTIVE (activate it afterwards).
-      The package dialog is suppressed (without DEVELOPMENT_CLASS/SUPPRESS_DIALOG
+    create=True: new program in $TMP that already holds the source (the source
+      is stored in both the active and inactive entry). It is not finished until
+      sap_activate runs: that sets the title, generates the program and drops
+      the leftover inactive entry. The package dialog is suppressed (without DEVELOPMENT_CLASS/SUPPRESS_DIALOG
       RPY_PROGRAM_INSERT dies with DYNPRO_SEND_IN_BACKGROUND over RFC) and the
       source goes in SOURCE_EXTENDED: on S4D the 144-wide SOURCE table is
       silently ignored and an empty program is saved.
@@ -899,7 +901,7 @@ def write_program(
         return {
             "program": program.upper(),
             "action": "created",
-            "saved_inactive": True,
+            "needs_activation": True,
             "raw": res,
         }
     try:
@@ -925,7 +927,7 @@ def write_program(
     return {
         "program": name,
         "action": "updated",
-        "saved_inactive": False,
+        "needs_activation": False,
         "active": True,
         "raw": res,
     }

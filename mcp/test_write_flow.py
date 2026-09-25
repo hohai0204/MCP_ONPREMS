@@ -44,8 +44,9 @@ def main() -> None:
         print("SKIP create/inactive/activate checks: fixture exists (no RFC delete); "
               "they run on a system where " + NAME + " is new")
     else:
-        tools.write_program(NAME, v1, create=True, title="MCP write flow test")
-        check("create saved inactive", "I" in states(), str(states()))
+        created = tools.write_program(NAME, v1, create=True, title="MCP write flow test")
+        check("create leaves an inactive entry, activation pending",
+              created["needs_activation"] and "I" in states(), str(states()))
         check("read inactive == written (long line intact)",
               tools.read_program(NAME, state="I")["source"] == v1)
         check("latest returns inactive", tools.read_program(NAME, state="latest")["source"] == v1)

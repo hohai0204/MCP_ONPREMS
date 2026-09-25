@@ -255,10 +255,11 @@ def sap_write_program(
     Args:
         program: Program name (custom objects should start with Z/Y).
         source: Full ABAP source code.
-        create: True = new program in $TMP, saved INACTIVE (call sap_activate
-            next). False = update an existing program: the source is
-            syntax-checked, then written ACTIVE (there is no safe inactive save
-            for existing programs on S4D).
+        create: True = new program in $TMP that already holds the source; call
+            sap_activate next to finish it (title, generation, drops the
+            leftover inactive entry). False = update an existing program: the
+            source is syntax-checked, then written ACTIVE and takes effect at
+            once (there is no safe inactive save for existing programs on S4D).
         title: Program title for a new program (defaults to the program name).
     """
     return _safe(tools.write_program, program, source, create, title)
