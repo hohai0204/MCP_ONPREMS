@@ -28,6 +28,15 @@ FORM vendor_details USING    it_lfa1   TYPE ANY TABLE
     INTO TABLE @DATA(lt_bp).
   SORT lt_bp BY vendor.
 
+  " mã số thuế của BP (loại VN0)
+  IF lt_bp IS NOT INITIAL.
+    SELECT partner, taxnum FROM dfkkbptaxnum
+      FOR ALL ENTRIES IN @lt_bp
+      WHERE partner = @lt_bp-partner AND taxtype = @gc_taxtype
+      INTO TABLE @DATA(lt_tax).
+    SORT lt_tax BY partner.
+  ENDIF.
+
   DATA(lt_addr) = lt_lfa1.
   DELETE lt_addr WHERE adrnr IS INITIAL.
   IF lt_addr IS NOT INITIAL.
@@ -58,7 +67,8 @@ FORM vendor_details USING    it_lfa1   TYPE ANY TABLE
     ls_vendor-region          = ls_lfa1-regio.
     ls_vendor-country         = ls_lfa1-land1.
     ls_vendor-telephone       = ls_lfa1-telf1.
-    ls_vendor-taxnumber1      = ls_lfa1-stcd1.
+    " mã số thuế: theo BP (VN0), không có thì theo mã số thuế / VAT trên nhà cung cấp
+    ls_vendor-taxnumber1      = COND #( WHEN ls_lfa1-stceg IS NOT INITIAL THEN ls_lfa1-stceg ELSE ls_lfa1-stcd1 ).
     ls_vendor-vatnumber       = ls_lfa1-stceg.
     ls_vendor-postingblock    = ls_lfa1-sperr.
     ls_vendor-purchasingblock = ls_lfa1-sperm.
@@ -77,6 +87,10 @@ FORM vendor_details USING    it_lfa1   TYPE ANY TABLE
     IF sy-subrc = 0.
       ls_vendor-businesspartner = ls_bp-partner.
       ls_vendor-bpgrouping      = ls_bp-bu_group.
+      READ TABLE lt_tax INTO DATA(ls_tax) WITH KEY partner = ls_bp-partner BINARY SEARCH.
+      IF sy-subrc = 0.
+        ls_vendor-taxnumber1 = ls_tax-taxnum.
+      ENDIF.
     ENDIF.
 
     " địa chỉ chuẩn dài hơn LFA1 -> ưu tiên ADRC khi có giá trị
@@ -98,4 +112,26 @@ FORM vendor_details USING    it_lfa1   TYPE ANY TABLE
 
     APPEND ls_vendor TO ct_vendor.
   ENDLOOP.
+ENDFORM.
+
+* Nhà cung cấp có mã số thuế thỏa điều kiện lọc TaxNumber1: mã số thuế của
+* BP (mọi loại) và mã số thuế / VAT cũ trên nhà cung cấp (STCEG, STCD1).
+FORM vendor_by_taxnumber USING    it_taxnum TYPE ty_r_taxnum
+                         CHANGING ct_lifnr  TYPE ty_r_lifnr.
+  DATA lt_vendor TYPE STANDARD TABLE OF lifnr WITH EMPTY KEY.
+
+  CLEAR ct_lifnr.
+  CHECK it_taxnum IS NOT INITIAL.
+
+  SELECT DISTINCT v~vendor FROM dfkkbptaxnum AS t
+    INNER JOIN but000 AS b ON b~partner = t~partner
+    INNER JOIN cvi_vend_link AS v ON v~partner_guid = b~partner_guid
+    WHERE t~taxnum IN @it_taxnum
+    INTO TABLE @lt_vendor.
+  SELECT lifnr FROM lfa1
+    WHERE stceg IN @it_taxnum OR stcd1 IN @it_taxnum
+    APPENDING TABLE @lt_vendor.
+  SORT lt_vendor.
+  DELETE ADJACENT DUPLICATES FROM lt_vendor.
+  ct_lifnr = VALUE #( FOR l IN lt_vendor ( sign = 'I' option = 'EQ' low = l ) ).
 ENDFORM.

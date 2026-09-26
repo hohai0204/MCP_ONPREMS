@@ -7,8 +7,12 @@ FUNCTION-POOL zctd_fg_core_int.             "MESSAGE-ID ..
 *----------------------------------------------------------------------*
 TYPES ty_t_filter TYPE STANDARD TABLE OF zctd_s_int_filter WITH DEFAULT KEY.
 
+TYPES: ty_r_taxnum TYPE RANGE OF bptaxnum,
+       ty_r_lifnr  TYPE RANGE OF lifnr.
+
 CONSTANTS: gc_default_top TYPE i VALUE 100,
-           gc_max_top     TYPE i VALUE 1000.
+           gc_max_top     TYPE i VALUE 1000,
+           gc_taxtype     TYPE bptaxtype VALUE 'VN0'.   " mã số thuế NCC trong nước (BP)
 
 * INCLUDE LZCTD_FG_CORE_INTD...              " Local class definition
 

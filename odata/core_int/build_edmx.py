@@ -32,7 +32,7 @@ ENTITIES = {
         s('Name1', 40, 'Name'), s('Name2', 40, 'Name 2'), s('SearchTerm', 20, 'Search Term'),
         s('Street', 60, 'Street'), s('City', 40, 'City'), s('PostalCode', 10, 'Postal Code'),
         s('Region', 3, 'Region'), s('Country', 3, 'Country'), s('Language', 2, 'Language'),
-        s('Telephone', 30, 'Telephone'), s('Email', 241, 'E-Mail'), s('TaxNumber1', 16, 'Tax Number 1'),
+        s('Telephone', 30, 'Telephone'), s('Email', 241, 'E-Mail'), s('TaxNumber1', 20, 'Tax Number'),
         s('VATNumber', 20, 'VAT Number'), s('PostingBlock', 1, 'Central Posting Block'),
         s('PurchasingBlock', 1, 'Central Purchasing Block'), s('DeletionFlag', 1, 'Deletion Flag'),
         s('CreatedOn', 8, 'Created On'), s('CreatedBy', 12, 'Created By')]),

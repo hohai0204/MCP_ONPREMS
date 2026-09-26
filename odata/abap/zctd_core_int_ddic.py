@@ -37,7 +37,7 @@ STRUCTS = {
         de('SEARCHTERM', 'BU_SORT1'), de('STREET', 'AD_STREET'), de('CITY', 'AD_CITY1'),
         de('POSTALCODE', 'AD_PSTCD1'), de('REGION', 'REGIO'), de('COUNTRY', 'LAND1_GP'),
         de('LANGUAGE', 'LAISO'), de('TELEPHONE', 'AD_TLNMBR1'), de('EMAIL', 'AD_SMTPADR'),
-        de('TAXNUMBER1', 'STCD1'), de('VATNUMBER', 'STCEG'), de('POSTINGBLOCK', 'SPERB_X'),
+        de('TAXNUMBER1', 'BPTAXNUM'), de('VATNUMBER', 'STCEG'), de('POSTINGBLOCK', 'SPERB_X'),
         de('PURCHASINGBLOCK', 'SPERM_X'), de('DELETIONFLAG', 'LOEVM_X'),
         raw('CREATEDON', 'CHAR', 8, text='Created on (YYYYMMDD)'), de('CREATEDBY', 'ERNAM_RF')]),
     'ZCTD_S_INT_PR_HDR': ('CTD Core Int: Purchase Requisition header', [

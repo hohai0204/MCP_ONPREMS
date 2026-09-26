@@ -1,6 +1,6 @@
 * Đọc nhà cung cấp cho OData ZCTD_CORE_INT_SRV (VendorSet).
 * Lọc (IT_FILTER, tùy chọn): Supplier, Name1, SearchTerm, Country,
-* AccountGroup, TaxNumber1, VATNumber, CreatedOn (YYYYMMDD),
+* AccountGroup, TaxNumber1 (mã số thuế BP / STCEG / STCD1), VATNumber, CreatedOn (YYYYMMDD),
 * PostingBlock, DeletionFlag.
 * Sắp xếp số nhà cung cấp giảm dần. IV_TOP = 0 -> 100, tối đa 1000.
 * Địa chỉ / điện thoại / e-mail lấy từ địa chỉ chuẩn (ADRC, ADR6);
@@ -11,7 +11,8 @@
         lr_sortl TYPE RANGE OF lfa1-sortl,
         lr_land1 TYPE RANGE OF lfa1-land1,
         lr_ktokk TYPE RANGE OF lfa1-ktokk,
-        lr_stcd1 TYPE RANGE OF lfa1-stcd1,
+        lr_taxnum TYPE ty_r_taxnum,
+        lr_tax_lifnr TYPE ty_r_lifnr,
         lr_stceg TYPE RANGE OF lfa1-stceg,
         lr_erdat TYPE RANGE OF lfa1-erdat,
         lr_sperr TYPE RANGE OF lfa1-sperr,
@@ -34,16 +35,25 @@
   PERFORM filter_range USING it_filter[] `SEARCHTERM`   `UPPER` CHANGING lr_sortl.
   PERFORM filter_range USING it_filter[] `COUNTRY`      `UPPER` CHANGING lr_land1.
   PERFORM filter_range USING it_filter[] `ACCOUNTGROUP` `UPPER` CHANGING lr_ktokk.
-  PERFORM filter_range USING it_filter[] `TAXNUMBER1`   ``      CHANGING lr_stcd1.
+  PERFORM filter_range USING it_filter[] `TAXNUMBER1`   `UPPER` CHANGING lr_taxnum.
   PERFORM filter_range USING it_filter[] `VATNUMBER`    ``      CHANGING lr_stceg.
   PERFORM filter_range USING it_filter[] `CREATEDON`    ``      CHANGING lr_erdat.
   PERFORM filter_range USING it_filter[] `POSTINGBLOCK` `UPPER` CHANGING lr_sperr.
   PERFORM filter_range USING it_filter[] `DELETIONFLAG` `UPPER` CHANGING lr_loevm.
   PERFORM get_top USING iv_top CHANGING lv_top.
 
+  " lọc mã số thuế: tìm trên BP + nhà cung cấp -> danh sách mã nhà cung cấp
+  IF lr_taxnum IS NOT INITIAL.
+    PERFORM vendor_by_taxnumber USING lr_taxnum CHANGING lr_tax_lifnr.
+    IF lr_tax_lifnr IS INITIAL.
+      APPEND VALUE #( BASE lcl_msg=>get( iv_no = '092' ) type = 'S' ) TO et_return.
+      RETURN.
+    ENDIF.
+  ENDIF.
+
   SELECT COUNT(*) FROM lfa1
     WHERE lifnr IN @lr_lifnr AND name1 IN @lr_name1 AND sortl IN @lr_sortl
-      AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND stcd1 IN @lr_stcd1
+      AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND lifnr IN @lr_tax_lifnr
       AND stceg IN @lr_stceg AND erdat IN @lr_erdat AND sperr IN @lr_sperr
       AND loevm IN @lr_loevm
     INTO @ev_total.
@@ -52,7 +62,7 @@
          spras, telf1, stcd1, stceg, sperr, sperm, loevm, erdat, ernam, adrnr
     FROM lfa1
     WHERE lifnr IN @lr_lifnr AND name1 IN @lr_name1 AND sortl IN @lr_sortl
-      AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND stcd1 IN @lr_stcd1
+      AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND lifnr IN @lr_tax_lifnr
       AND stceg IN @lr_stceg AND erdat IN @lr_erdat AND sperr IN @lr_sperr
       AND loevm IN @lr_loevm
     ORDER BY lifnr DESCENDING

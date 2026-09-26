@@ -21,7 +21,7 @@
         <Property Name="Language" Type="Edm.String" Nullable="true" MaxLength="2" sap:unicode="false" sap:label="Language"/>
         <Property Name="Telephone" Type="Edm.String" Nullable="true" MaxLength="30" sap:unicode="false" sap:label="Telephone"/>
         <Property Name="Email" Type="Edm.String" Nullable="true" MaxLength="241" sap:unicode="false" sap:label="E-Mail"/>
-        <Property Name="TaxNumber1" Type="Edm.String" Nullable="true" MaxLength="16" sap:unicode="false" sap:label="Tax Number 1"/>
+        <Property Name="TaxNumber1" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="Tax Number"/>
         <Property Name="VATNumber" Type="Edm.String" Nullable="true" MaxLength="20" sap:unicode="false" sap:label="VAT Number"/>
         <Property Name="PostingBlock" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Central Posting Block"/>
         <Property Name="PurchasingBlock" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Central Purchasing Block"/>
