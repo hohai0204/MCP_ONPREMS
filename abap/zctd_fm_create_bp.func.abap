@@ -9,7 +9,7 @@
 * đặt hàng VND, kiểm tra hóa đơn theo nhập kho.
 * Nhóm BP mặc định Z001 (NCC trong nước, cùng số). IV_TESTRUN = 'X': chạy
 * mọi kiểm tra rồi hủy, không lưu. Lỗi bất kỳ phần nào -> không lưu gì.
-* Tạo mới: trùng mã số thuế (TAXNUMBER, lưu loại VN0) với BP / NCC khác -> lỗi,
+* Tạo mới: bắt buộc tên, quốc gia, mã số thuế. Trùng mã số thuế (TAXNUMBER, lưu loại VN0) với BP / NCC khác -> lỗi,
 * không tạo; trùng tên với NCC khác -> cảnh báo (W), vẫn tạo.
 * IV_SUPPLIER = mã NCC đã có -> CẬP NHẬT thay vì tạo mới: chỉ đổi các ô được
 * truyền trong IS_SUPPLIER / IT_COMPANY / IT_PURCHASING; công ty, tổ chức mua

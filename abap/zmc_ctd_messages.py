@@ -164,6 +164,7 @@ MESSAGES = [
     ('110', 'Mã số thuế &1 đã được dùng cho nhà cung cấp &2 (BP &3).', []),
     ('111', 'Tên "&1" đã có ở nhà cung cấp &2 (BP &3), vẫn tiếp tục tạo.', []),
     ('112', 'Nhà cung cấp &1 đã có mã số thuế &2, không đổi qua chức năng này.', []),
+    ('113', 'Chưa nhập mã số thuế của nhà cung cấp.', []),
 ]
 
 

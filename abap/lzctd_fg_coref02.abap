@@ -25,6 +25,10 @@ FORM bp_check_input USING    is_supplier TYPE zctd_s_bp_supplier
     APPEND VALUE #( BASE lcl_msg=>get( iv_no = '071' )
                     type = 'E' parameter = 'IS_SUPPLIER' field = 'COUNTRY' ) TO ct_return.
   ENDIF.
+  IF is_supplier-taxnumber IS INITIAL.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '113' )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
+  ENDIF.
 ENDFORM.
 
 * Không truyền công ty / tổ chức mua hàng -> 1000 / 1000; ô trống -> mặc định

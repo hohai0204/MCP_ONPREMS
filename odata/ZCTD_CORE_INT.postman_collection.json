@@ -265,7 +265,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
+              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\",\n  \"TaxNumber1\": \"0312345678\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/VendorSet?sap-client=100&TestRun=X",
@@ -286,7 +286,7 @@
                 }
               ]
             },
-            "description": "Chỉ kiểm tra, không lưu. Kết quả ở header sap-message."
+            "description": "Chỉ kiểm tra, không lưu. Kết quả ở header sap-message. Bắt buộc Name1, Country, TaxNumber1 (mã số thuế). Trùng mã số thuế -> lỗi; trùng tên -> cảnh báo (header sap-message), vẫn tạo."
           }
         },
         {
@@ -305,7 +305,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\"\n}"
+              "raw": "{\n  \"BPGrouping\": \"\",\n  \"Name1\": \"CONG TY TNHH ABC\",\n  \"SearchTerm\": \"ABC\",\n  \"Street\": \"1 Nguyen Hue\",\n  \"City\": \"Ho Chi Minh\",\n  \"PostalCode\": \"700000\",\n  \"Region\": \"\",\n  \"Country\": \"VN\",\n  \"Language\": \"VI\",\n  \"Telephone\": \"0281234567\",\n  \"Email\": \"contact@abc.vn\",\n  \"TaxNumber1\": \"0312345678\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/VendorSet?sap-client=100",
@@ -322,7 +322,7 @@
                 }
               ]
             },
-            "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country."
+            "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country. Bắt buộc Name1, Country, TaxNumber1 (mã số thuế). Trùng mã số thuế -> lỗi; trùng tên -> cảnh báo (header sap-message), vẫn tạo."
           }
         },
         {
