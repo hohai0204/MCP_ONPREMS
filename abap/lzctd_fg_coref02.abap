@@ -251,6 +251,7 @@ FORM bp_read_existing USING    iv_supplier TYPE lifnr
   IF sy-subrc = 0.
     cs_exist-addrnumber = ls_addr-addrnumber.
     cs_exist-addr_guid  = ls_addr-address_guid.
+    SELECT SINGLE country FROM adrc WHERE addrnumber = @cs_exist-addrnumber INTO @cs_exist-country.
     SELECT SINGLE consnumber FROM adr2
       WHERE addrnumber = @cs_exist-addrnumber AND persnumber = @space AND flgdefault = @abap_true
       INTO @cs_exist-tel_cons.
@@ -332,11 +333,14 @@ FORM bp_build_change USING    is_supplier TYPE zctd_s_bp_supplier
       <ls_addr>-data-postal-datax-country = abap_true.
     ENDIF.
     IF is_supplier-telephone IS NOT INITIAL.
+      " quốc gia của số điện thoại: theo quốc gia truyền vào, không có thì theo địa chỉ hiện có
+      DATA(lv_tel_country) = COND land1( WHEN is_supplier-country IS NOT INITIAL THEN is_supplier-country
+                                         ELSE is_exist-country ).
       APPEND VALUE #( contact = VALUE #(
                         task  = COND #( WHEN is_exist-tel_cons IS NOT INITIAL THEN 'U' ELSE 'I' )
                         data  = VALUE #( telephone = is_supplier-telephone std_no = abap_true consnumber = is_exist-tel_cons
-                                         country = COND #( WHEN is_supplier-country IS NOT INITIAL THEN is_supplier-country ELSE 'VN' ) )
-                        datax = VALUE #( telephone = abap_true std_no = abap_true country = abap_true
+                                         country = lv_tel_country )
+                        datax = VALUE #( telephone = abap_true std_no = abap_true country = xsdbool( lv_tel_country IS NOT INITIAL )
                                          updateflag = COND #( WHEN is_exist-tel_cons IS NOT INITIAL THEN 'U' ELSE 'I' ) ) ) )
         TO <ls_addr>-data-communication-phone-phone.
     ENDIF.
