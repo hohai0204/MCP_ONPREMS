@@ -482,7 +482,7 @@ METHOD vendorset_create_entity.
                                       iv_supplier = ls_input-supplier
                             IMPORTING es_vendor   = er_entity
                                       et_return   = lt_return ).
-        DELETE lt_return WHERE type <> 'S'.
+        DELETE lt_return WHERE type NA 'SW'.  " thành công + cảnh báo (vd trùng tên)
         mo_context->get_message_container( )->add_messages_from_bapi(
           it_bapi_messages          = lt_return
           iv_add_to_response_header = abap_true ).
@@ -526,7 +526,7 @@ METHOD vendorset_update_entity.
                                       iv_supplier = lv_supplier
                             IMPORTING es_vendor   = er_entity
                                       et_return   = lt_return ).
-        DELETE lt_return WHERE type <> 'S'.
+        DELETE lt_return WHERE type NA 'SW'.  " thành công + cảnh báo (vd trùng tên)
         mo_context->get_message_container( )->add_messages_from_bapi(
           it_bapi_messages          = lt_return
           iv_add_to_response_header = abap_true ).

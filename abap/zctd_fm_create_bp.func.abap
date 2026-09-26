@@ -9,8 +9,8 @@
 * đặt hàng VND, kiểm tra hóa đơn theo nhập kho.
 * Nhóm BP mặc định Z001 (NCC trong nước, cùng số). IV_TESTRUN = 'X': chạy
 * mọi kiểm tra rồi hủy, không lưu. Lỗi bất kỳ phần nào -> không lưu gì.
-* Tạo mới: trùng mã số thuế (TAXNUMBER, lưu loại VN0) hoặc trùng tên với NCC
-* khác -> báo lỗi, không tạo.
+* Tạo mới: trùng mã số thuế (TAXNUMBER, lưu loại VN0) với BP / NCC khác -> lỗi,
+* không tạo; trùng tên với NCC khác -> cảnh báo (W), vẫn tạo.
 * IV_SUPPLIER = mã NCC đã có -> CẬP NHẬT thay vì tạo mới: chỉ đổi các ô được
 * truyền trong IS_SUPPLIER / IT_COMPANY / IT_PURCHASING; công ty, tổ chức mua
 * hàng, role FLVN00/FLVN01 chưa có thì mở thêm; NCC chưa có dữ liệu công ty
@@ -43,12 +43,12 @@
     RETURN.
   ENDIF.
 
-  " chưa có -> tạo mới: dữ liệu bắt buộc, rồi trùng mã số thuế / tên
+  " chưa có -> tạo mới: dữ liệu bắt buộc, rồi trùng mã số thuế (lỗi) / tên (cảnh báo)
   PERFORM bp_check_input USING is_supplier CHANGING et_return.
   IF et_return IS INITIAL.
     PERFORM bp_check_duplicate USING is_supplier CHANGING et_return.
   ENDIF.
-  IF et_return IS NOT INITIAL.
+  IF line_exists( et_return[ type = 'E' ] ).
     RETURN.
   ENDIF.
 

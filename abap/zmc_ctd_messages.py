@@ -162,7 +162,7 @@ MESSAGES = [
     ('102', 'Không ghi được log gọi API: &1', []),
     # ---- ZCTD_FM_CREATE_BP (bổ sung: kiểm tra trùng, mã số thuế) --------
     ('110', 'Mã số thuế &1 đã được dùng cho nhà cung cấp &2 (BP &3).', []),
-    ('111', 'Tên "&1" đã có ở nhà cung cấp &2 (BP &3).', []),
+    ('111', 'Tên "&1" đã có ở nhà cung cấp &2 (BP &3), vẫn tiếp tục tạo.', []),
     ('112', 'Nhà cung cấp &1 đã có mã số thuế &2, không đổi qua chức năng này.', []),
 ]
 

@@ -8,7 +8,7 @@
 *   bp_build_partner  BP: dữ liệu chung, địa chỉ, liên lạc, role
 *   bp_build_vendor   nhà cung cấp: company code (LFB1), purchasing (LFM1)
 *   bp_maintain       gọi API, gom thông báo, COMMIT / ROLLBACK
-*   bp_check_duplicate  tạo mới: trùng mã số thuế / tên -> không tạo
+*   bp_check_duplicate  tạo mới: trùng mã số thuế -> không tạo; trùng tên -> cảnh báo
 * Chế độ đổi (IV_SUPPLIER đã có):
 *   bp_read_existing  đọc BP / địa chỉ / role / công ty / tổ chức mua đã có
 *   bp_build_change   chỉ đổi ô được truyền; công ty / tổ chức mua / role
@@ -468,8 +468,8 @@ FORM bp_find_taxnumber USING    iv_tax     TYPE bptaxnum
   ENDIF.
 ENDFORM.
 
-* Tạo mới: mã số thuế hoặc tên (không phân biệt hoa thường) đã có ở nhà
-* cung cấp khác -> báo lỗi, không tạo.
+* Tạo mới: mã số thuế đã có ở BP / nhà cung cấp khác -> LỖI, không tạo;
+* tên (không phân biệt hoa thường) đã có ở nhà cung cấp khác -> CẢNH BÁO, vẫn tạo.
 FORM bp_check_duplicate USING    is_supplier TYPE zctd_s_bp_supplier
                         CHANGING ct_return   TYPE bapiret2_t.
   DATA: lv_tax     TYPE bptaxnum,
@@ -497,7 +497,7 @@ FORM bp_check_duplicate USING    is_supplier TYPE zctd_s_bp_supplier
     APPEND VALUE #( BASE lcl_msg=>get( iv_no = '111' iv_v1 = |{ is_supplier-name1 }|
                                        iv_v2 = condense( |{ ls_same-vendor ALPHA = OUT }| )
                                        iv_v3 = condense( |{ ls_same-partner ALPHA = OUT }| ) )
-                    type = 'E' parameter = 'IS_SUPPLIER' field = 'NAME1' ) TO ct_return.
+                    type = 'W' parameter = 'IS_SUPPLIER' field = 'NAME1' ) TO ct_return.
   ENDIF.
 ENDFORM.
 
