@@ -216,6 +216,111 @@
           }
         },
         {
+          "name": "Lọc theo mã số thuế",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=TaxNumber1 eq '0400394655'",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "TaxNumber1 eq '0400394655'"
+                }
+              ]
+            },
+            "description": "TaxNumber1 là mã số thuế của BP (loại VN0); BP không có thì lấy mã số thuế / VAT trên nhà cung cấp (STCEG, rồi STCD1). Lọc tìm trên mọi mã số thuế của BP và cả STCEG, STCD1."
+          }
+        },
+        {
+          "name": "Mã số thuế bắt đầu bằng",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&$filter=startswith(TaxNumber1,'0400')&$top=20&$inlinecount=allpages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "$filter",
+                  "value": "startswith(TaxNumber1,'0400')"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                },
+                {
+                  "key": "$inlinecount",
+                  "value": "allpages"
+                }
+              ]
+            },
+            "description": "TaxNumber1 là mã số thuế của BP (loại VN0); BP không có thì lấy mã số thuế / VAT trên nhà cung cấp (STCEG, rồi STCD1). Lọc tìm trên mọi mã số thuế của BP và cả STCEG, STCD1."
+          }
+        },
+        {
+          "name": "Nhiều mã số thuế (tham số URL)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/VendorSet?sap-client={{client}}&$format=json&TaxNumber1=0400394655,010626264&$top=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "VendorSet"
+              ],
+              "query": [
+                {
+                  "key": "sap-client",
+                  "value": "{{client}}"
+                },
+                {
+                  "key": "$format",
+                  "value": "json"
+                },
+                {
+                  "key": "TaxNumber1",
+                  "value": "0400394655,010626264"
+                },
+                {
+                  "key": "$top",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Nhiều giá trị cách nhau dấu phẩy; có * thì tìm theo mẫu (vd 0400*). TaxNumber1 là mã số thuế của BP (loại VN0); BP không có thì lấy mã số thuế / VAT trên nhà cung cấp (STCEG, rồi STCD1). Lọc tìm trên mọi mã số thuế của BP và cả STCEG, STCD1."
+          }
+        },
+        {
           "name": "Phân trang",
           "request": {
             "method": "GET",
@@ -322,7 +427,7 @@
                 }
               ]
             },
-            "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country. Bắt buộc Name1, Country, TaxNumber1 (mã số thuế). Trùng mã số thuế -> lỗi; trùng tên -> cảnh báo (header sap-message), vẫn tạo."
+            "description": "Tạo BP (role FLVN00) + nhà cung cấp bằng ZCTD_FM_CREATE_BP. Bắt buộc Name1, Country, TaxNumber1 (mã số thuế). Trùng mã số thuế -> lỗi; trùng tên -> cảnh báo (header sap-message), vẫn tạo."
           }
         },
         {
