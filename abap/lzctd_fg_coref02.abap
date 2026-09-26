@@ -8,6 +8,7 @@
 *   bp_build_partner  BP: dữ liệu chung, địa chỉ, liên lạc, role
 *   bp_build_vendor   nhà cung cấp: company code (LFB1), purchasing (LFM1)
 *   bp_maintain       gọi API, gom thông báo, COMMIT / ROLLBACK
+*   bp_check_taxformat  mã số thuế chỉ gồm số hoặc số-số
 *   bp_check_duplicate  tạo mới: trùng mã số thuế -> không tạo; trùng tên -> cảnh báo
 * Chế độ đổi (IV_SUPPLIER đã có):
 *   bp_read_existing  đọc BP / địa chỉ / role / công ty / tổ chức mua đã có
@@ -27,6 +28,19 @@ FORM bp_check_input USING    is_supplier TYPE zctd_s_bp_supplier
   ENDIF.
   IF is_supplier-taxnumber IS INITIAL.
     APPEND VALUE #( BASE lcl_msg=>get( iv_no = '113' )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
+  ELSE.
+    PERFORM bp_check_taxformat USING is_supplier-taxnumber CHANGING ct_return.
+  ENDIF.
+ENDFORM.
+
+* Mã số thuế chỉ gồm số, hoặc số-số (vd 0312345678 / 0312345678-001); không giới hạn độ dài
+FORM bp_check_taxformat USING    iv_tax    TYPE csequence
+                        CHANGING ct_return TYPE bapiret2_t.
+  DATA(lv_tax) = condense( CONV string( iv_tax ) ).
+  CHECK lv_tax IS NOT INITIAL.
+  IF NOT matches( val = lv_tax regex = `^\d+(-\d+)?$` ).
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '114' iv_v1 = lv_tax )
                     type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
   ENDIF.
 ENDFORM.
@@ -518,6 +532,10 @@ FORM bp_change_taxnumber USING    is_supplier TYPE zctd_s_bp_supplier
 
   lv_tax = to_upper( condense( is_supplier-taxnumber ) ).
   CHECK lv_tax IS NOT INITIAL.
+  PERFORM bp_check_taxformat USING lv_tax CHANGING ct_return.
+  IF line_exists( ct_return[ type = 'E' ] ).
+    RETURN.
+  ENDIF.
 
   SELECT taxnum FROM dfkkbptaxnum
     WHERE partner = @is_exist-partner AND taxtype = @gc_bp_taxtype
