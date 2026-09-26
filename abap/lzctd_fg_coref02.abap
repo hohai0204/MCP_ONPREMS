@@ -8,6 +8,7 @@
 *   bp_build_partner  BP: dữ liệu chung, địa chỉ, liên lạc, role
 *   bp_build_vendor   nhà cung cấp: company code (LFB1), purchasing (LFM1)
 *   bp_maintain       gọi API, gom thông báo, COMMIT / ROLLBACK
+*   bp_check_duplicate  tạo mới: trùng mã số thuế / tên -> không tạo
 * Chế độ đổi (IV_SUPPLIER đã có):
 *   bp_read_existing  đọc BP / địa chỉ / role / công ty / tổ chức mua đã có
 *   bp_build_change   chỉ đổi ô được truyền; công ty / tổ chức mua / role
@@ -91,6 +92,12 @@ FORM bp_build_partner USING    is_supplier TYPE zctd_s_bp_supplier
   cs_data-partner-central_data-common-datax-bp_centraldata-searchterm1     = abap_true.
   cs_data-partner-central_data-common-datax-bp_centraldata-partnerlanguage = abap_true.
   cs_data-partner-central_data-common-datax-bp_organization-name1          = abap_true.
+
+  " mã số thuế (loại VN0 - NCC trong nước)
+  IF is_supplier-taxnumber IS NOT INITIAL.
+    APPEND VALUE #( task = 'I' data_key = VALUE #( taxtype = gc_bp_taxtype taxnumber = to_upper( condense( is_supplier-taxnumber ) ) ) )
+      TO cs_data-partner-central_data-taxnumber-taxnumbers.
+  ENDIF.
 
   " role kế toán NCC (company code) + NCC mua hàng (purchasing org)
   DATA lt_roles TYPE STANDARD TABLE OF bu_role WITH EMPTY KEY.
@@ -423,4 +430,112 @@ FORM bp_build_change USING    is_supplier TYPE zctd_s_bp_supplier
         TO cs_data-vendor-purchasing_data-purchasing.
     ENDIF.
   ENDLOOP.
+ENDFORM.
+
+*======================================================================*
+* Kiểm tra trùng trước khi tạo / mã số thuế
+*======================================================================*
+* Tìm BP + nhà cung cấp đang dùng mã số thuế (mọi loại mã số thuế của BP,
+* và mã số thuế / VAT cũ trên nhà cung cấp). iv_exclude = BP của chính mình.
+FORM bp_find_taxnumber USING    iv_tax     TYPE bptaxnum
+                                iv_exclude TYPE bu_partner
+                       CHANGING cv_partner TYPE bu_partner
+                                cv_vendor  TYPE lifnr.
+  CLEAR: cv_partner, cv_vendor.
+  CHECK iv_tax IS NOT INITIAL.
+
+  SELECT partner FROM dfkkbptaxnum
+    WHERE taxnum = @iv_tax AND partner <> @iv_exclude
+    INTO @cv_partner UP TO 1 ROWS.
+  ENDSELECT.
+  IF cv_partner IS NOT INITIAL.
+    SELECT SINGLE v~vendor FROM but000 AS b
+      INNER JOIN cvi_vend_link AS v ON v~partner_guid = b~partner_guid
+      WHERE b~partner = @cv_partner
+      INTO @cv_vendor.
+    RETURN.
+  ENDIF.
+
+  SELECT lifnr FROM lfa1
+    WHERE ( stceg = @iv_tax OR stcd1 = @iv_tax ) AND lifnr <> @iv_exclude
+    INTO @cv_vendor UP TO 1 ROWS.
+  ENDSELECT.
+  IF cv_vendor IS NOT INITIAL.
+    SELECT SINGLE b~partner FROM cvi_vend_link AS v
+      INNER JOIN but000 AS b ON b~partner_guid = v~partner_guid
+      WHERE v~vendor = @cv_vendor
+      INTO @cv_partner.
+  ENDIF.
+ENDFORM.
+
+* Tạo mới: mã số thuế hoặc tên (không phân biệt hoa thường) đã có ở nhà
+* cung cấp khác -> báo lỗi, không tạo.
+FORM bp_check_duplicate USING    is_supplier TYPE zctd_s_bp_supplier
+                        CHANGING ct_return   TYPE bapiret2_t.
+  DATA: lv_tax     TYPE bptaxnum,
+        lv_partner TYPE bu_partner,
+        lv_vendor  TYPE lifnr,
+        lv_name    TYPE bu_nameor1.
+
+  lv_tax = to_upper( condense( is_supplier-taxnumber ) ).
+  PERFORM bp_find_taxnumber USING lv_tax space CHANGING lv_partner lv_vendor.
+  IF lv_partner IS NOT INITIAL OR lv_vendor IS NOT INITIAL.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '110' iv_v1 = |{ lv_tax }|
+                                       iv_v2 = condense( |{ lv_vendor ALPHA = OUT }| )
+                                       iv_v3 = condense( |{ lv_partner ALPHA = OUT }| ) )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
+  ENDIF.
+
+  lv_name = to_upper( condense( is_supplier-name1 ) ).
+  CHECK lv_name IS NOT INITIAL.
+  SELECT b~partner, v~vendor FROM but000 AS b
+    INNER JOIN cvi_vend_link AS v ON v~partner_guid = b~partner_guid
+    WHERE upper( b~name_org1 ) = @lv_name
+    INTO @DATA(ls_same) UP TO 1 ROWS.
+  ENDSELECT.
+  IF sy-subrc = 0.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '111' iv_v1 = |{ is_supplier-name1 }|
+                                       iv_v2 = condense( |{ ls_same-vendor ALPHA = OUT }| )
+                                       iv_v3 = condense( |{ ls_same-partner ALPHA = OUT }| ) )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'NAME1' ) TO ct_return.
+  ENDIF.
+ENDFORM.
+
+* Đổi: NCC chưa có mã số thuế -> thêm (kiểm tra trùng); đã có mã khác -> báo lỗi.
+FORM bp_change_taxnumber USING    is_supplier TYPE zctd_s_bp_supplier
+                                  is_exist    TYPE gty_bp_exist
+                         CHANGING cs_data     TYPE cvis_ei_extern
+                                  ct_return   TYPE bapiret2_t.
+  DATA: lv_tax     TYPE bptaxnum,
+        lv_partner TYPE bu_partner,
+        lv_vendor  TYPE lifnr.
+
+  lv_tax = to_upper( condense( is_supplier-taxnumber ) ).
+  CHECK lv_tax IS NOT INITIAL.
+
+  SELECT taxnum FROM dfkkbptaxnum
+    WHERE partner = @is_exist-partner AND taxtype = @gc_bp_taxtype
+    INTO @DATA(lv_current) UP TO 1 ROWS.
+  ENDSELECT.
+  IF lv_current = lv_tax.
+    RETURN.
+  ENDIF.
+  IF lv_current IS NOT INITIAL.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '112' iv_v1 = condense( |{ is_exist-lifnr ALPHA = OUT }| )
+                                       iv_v2 = |{ lv_current }| )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
+    RETURN.
+  ENDIF.
+
+  PERFORM bp_find_taxnumber USING lv_tax is_exist-partner CHANGING lv_partner lv_vendor.
+  IF lv_partner IS NOT INITIAL OR lv_vendor IS NOT INITIAL.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '110' iv_v1 = |{ lv_tax }|
+                                       iv_v2 = condense( |{ lv_vendor ALPHA = OUT }| )
+                                       iv_v3 = condense( |{ lv_partner ALPHA = OUT }| ) )
+                    type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
+    RETURN.
+  ENDIF.
+
+  APPEND VALUE #( task = 'I' data_key = VALUE #( taxtype = gc_bp_taxtype taxnumber = lv_tax ) )
+    TO cs_data-partner-central_data-taxnumber-taxnumbers.
 ENDFORM.

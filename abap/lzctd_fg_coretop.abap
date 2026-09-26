@@ -88,7 +88,8 @@ CONSTANTS: gc_bp_group_def  TYPE bu_group VALUE 'Z001',
            gc_bp_ekorg_def  TYPE ekorg    VALUE '1000',
            gc_bp_waers_def  TYPE bstwa    VALUE 'VND',
            gc_bp_role_fi    TYPE bu_role  VALUE 'FLVN00',
-           gc_bp_role_purch TYPE bu_role  VALUE 'FLVN01'.
+           gc_bp_role_purch TYPE bu_role  VALUE 'FLVN01',
+           gc_bp_taxtype    TYPE bptaxtype VALUE 'VN0'.      " mã số thuế NCC trong nước
 
 " nhà cung cấp đã có (chế độ đổi của ZCTD_FM_CREATE_BP)
 TYPES: BEGIN OF gty_bp_exist,

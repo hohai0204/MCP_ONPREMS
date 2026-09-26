@@ -298,7 +298,9 @@ CLASS lcl_vendor IMPLEMENTATION.
                            region      = to_upper( is_vendor-region )
                            country     = to_upper( is_vendor-country )
                            telephone   = is_vendor-telephone
-                           e_mail      = is_vendor-email ).
+                           e_mail      = is_vendor-email
+                           taxnumber   = COND #( WHEN is_vendor-taxnumber1 IS NOT INITIAL THEN is_vendor-taxnumber1
+                                                 ELSE is_vendor-vatnumber ) ).
     IF is_vendor-language IS NOT INITIAL.
       CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
         EXPORTING

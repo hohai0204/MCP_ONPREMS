@@ -7,6 +7,8 @@ tay trong code (refactor_msgs.py). Mỗi message tối đa 73 ký tự; biến &
     OLD: câu cũ trong code (nội dung giữa |...|)  -> (số, câu mới)
 """
 
+# Khoảng số: 001-069 hợp đồng, 070-079 + 110-119 nhà cung cấp, 080-089 đọc PO,
+# 090-099 API tích hợp, 100-109 log API.
 # (số, câu mới, [câu cũ ...])  - câu cũ rỗng = message dùng ở chỗ sửa tay
 MESSAGES = [
     # ---- ZCTD_FM_CREATE_CONT: kiểm tra đầu vào --------------------------
@@ -158,6 +160,10 @@ MESSAGES = [
     ('100', 'Đã ghi log &1.', []),
     ('101', 'Log &1 lúc &2 &3 đã tồn tại.', []),
     ('102', 'Không ghi được log gọi API: &1', []),
+    # ---- ZCTD_FM_CREATE_BP (bổ sung: kiểm tra trùng, mã số thuế) --------
+    ('110', 'Mã số thuế &1 đã được dùng cho nhà cung cấp &2 (BP &3).', []),
+    ('111', 'Tên "&1" đã có ở nhà cung cấp &2 (BP &3).', []),
+    ('112', 'Nhà cung cấp &1 đã có mã số thuế &2, không đổi qua chức năng này.', []),
 ]
 
 
