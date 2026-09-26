@@ -486,6 +486,8 @@ FORM bp_check_duplicate USING    is_supplier TYPE zctd_s_bp_supplier
                     type = 'E' parameter = 'IS_SUPPLIER' field = 'TAXNUMBER' ) TO ct_return.
   ENDIF.
 
+  " đã bị chặn vì trùng mã số thuế -> không cần cảnh báo trùng tên
+  CHECK NOT line_exists( ct_return[ type = 'E' ] ).
   lv_name = to_upper( condense( is_supplier-name1 ) ).
   CHECK lv_name IS NOT INITIAL.
   SELECT b~partner, v~vendor FROM but000 AS b
