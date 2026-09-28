@@ -170,6 +170,24 @@ MESSAGES = [
     ('116', 'Bạn không có quyền &1 vai trò BP &2 của nhà cung cấp.', []),
     ('117', 'Bạn không có quyền &1 nhà cung cấp ở công ty &2.', []),
     ('118', 'Bạn không có quyền &1 nhà cung cấp ở tổ chức mua hàng &2.', []),
+    # 120-136 yêu cầu mua hàng (ZCTD_FM_CREATE_PR)
+    ('120', 'Chưa có dòng yêu cầu mua hàng nào.', []),
+    ('121', 'Dòng &1: chưa nhập vật tư.', []),
+    ('122', 'Dòng &1: số lượng phải lớn hơn 0.', []),
+    ('123', 'Dòng &1: chưa nhập ngày giao hàng.', []),
+    ('124', 'Dòng &1: chưa nhập nhà máy.', []),
+    ('125', 'Dòng &1: chưa nhập WBS của dự án.', []),
+    ('126', 'Không tạo được yêu cầu mua hàng, xem các thông báo của SAP ở trên.', []),
+    ('127', 'Không sửa được yêu cầu mua hàng &1, xem các thông báo của SAP ở trên.', []),
+    ('128', 'Chạy thử thành công: dữ liệu hợp lệ, chưa lưu yêu cầu mua hàng.', []),
+    ('129', 'Đã tạo yêu cầu mua hàng &1.', []),
+    ('130', 'Đã cập nhật yêu cầu mua hàng &1.', []),
+    ('131', 'Không tìm thấy yêu cầu mua hàng &1.', []),
+    ('132', 'Yêu cầu mua hàng &1 là loại &2, chức năng này chỉ hỗ trợ loại ZPR1.', []),
+    ('133', 'Dòng &1 đã được đặt hàng, không sửa được.', []),
+    ('134', 'Dòng &1: không có thông tin nào để thay đổi.', []),
+    ('135', 'Lưu yêu cầu mua hàng không thành công.', []),
+    ('136', 'Dòng &1: không thể vừa xóa vừa khôi phục.', []),
 ]
 
 

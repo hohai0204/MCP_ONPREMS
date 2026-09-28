@@ -108,6 +108,33 @@ TYPES: BEGIN OF gty_bp_exist,
        END OF gty_bp_exist.
 
 *----------------------------------------------------------------------*
+* ZCTD_FM_CREATE_PR - kiểu dữ liệu dùng chung với LZCTD_FG_COREF03
+*----------------------------------------------------------------------*
+TYPES: gty_t_pr_item       TYPE STANDARD TABLE OF zctd_s_pr_item WITH DEFAULT KEY,
+       gty_t_pr_bapi_item  TYPE STANDARD TABLE OF bapimereqitemimp WITH DEFAULT KEY,
+       gty_t_pr_bapi_itemx TYPE STANDARD TABLE OF bapimereqitemx WITH DEFAULT KEY,
+       gty_t_pr_bapi_acc   TYPE STANDARD TABLE OF bapimereqaccount WITH DEFAULT KEY,
+       gty_t_pr_bapi_accx  TYPE STANDARD TABLE OF bapimereqaccountx WITH DEFAULT KEY,
+
+       " dòng PR đã có (chế độ sửa của ZCTD_FM_CREATE_PR)
+       BEGIN OF gty_pr_exist_item,
+         bnfpo TYPE eban-bnfpo,
+         bsart TYPE eban-bsart,
+         statu TYPE eban-statu,
+         bsmng TYPE eban-bsmng,
+         ebakz TYPE eban-ebakz,
+         loekz TYPE eban-loekz,
+       END OF gty_pr_exist_item,
+       gty_t_pr_exist_item TYPE SORTED TABLE OF gty_pr_exist_item WITH UNIQUE KEY bnfpo.
+
+" PR dự án như đang dùng (client 360, PR 2026): loại ZPR1, gán dự án (WBS),
+" TK chi phí 6211000001, số dòng bước 10
+CONSTANTS: gc_pr_type   TYPE eban-bsart VALUE 'ZPR1',
+           gc_pr_acct   TYPE eban-knttp VALUE 'P',
+           gc_pr_gl_def TYPE saknr      VALUE '6211000001',
+           gc_pr_step   TYPE eban-bnfpo VALUE '00010'.
+
+*----------------------------------------------------------------------*
 * Message class ZMC_CTD -> BAPIRET2 (ID, NUMBER, MESSAGE_V1..V4, text).
 * Dùng: APPEND VALUE #( BASE lcl_msg=>get( iv_no = '001' iv_v1 = .. )
 *                       type = 'E' parameter = .. ) TO et_return.
