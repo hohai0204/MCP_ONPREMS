@@ -153,8 +153,6 @@ MESSAGES = [
     ('092', 'Không có nhà cung cấp nào thỏa điều kiện.', ['Không có nhà cung cấp nào thỏa điều kiện.']),
     ('093', 'Tìm thấy &1 nhà cung cấp, trả về &2.',
      ['Tìm thấy { ev_total } nhà cung cấp, trả về { lines( et_vendor ) }.']),
-    ('096', 'Bạn không có quyền xem nhà cung cấp.', []),
-    ('097', 'Bạn không có quyền xem nhà cung cấp &1 (nhóm &2).', []),
     ('094', 'Không có yêu cầu mua hàng nào thỏa điều kiện.', ['Không có yêu cầu mua hàng nào thỏa điều kiện.']),
     ('095', 'Tìm thấy &1 yêu cầu mua hàng, trả về &2.',
      ['Tìm thấy { ev_total } yêu cầu mua hàng, trả về { lines( et_header ) }.']),

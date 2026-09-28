@@ -5,11 +5,8 @@
 * Sắp xếp số nhà cung cấp giảm dần. IV_TOP = 0 -> 100, tối đa 1000.
 * Địa chỉ / điện thoại / e-mail lấy từ địa chỉ chuẩn (ADRC, ADR6);
 * Business Partner + nhóm BP lấy qua liên kết CVI.
-* Quyền xem: vai trò BP FLVN00/FLVN01 + nhóm tài khoản (hoạt động 03); chỉ
-* trả nhà cung cấp thuộc nhóm được xem, không có quyền -> lỗi 096 / 097.
 
-  DATA: lr_lifnr TYPE ty_r_lifnr,
-        lr_ktokk_auth TYPE ty_r_ktokk,
+  DATA: lr_lifnr TYPE RANGE OF lfa1-lifnr,
         lr_name1 TYPE RANGE OF lfa1-name1,
         lr_sortl TYPE RANGE OF lfa1-sortl,
         lr_land1 TYPE RANGE OF lfa1-land1,
@@ -29,11 +26,6 @@
     `SUPPLIER,NAME1,SEARCHTERM,COUNTRY,ACCOUNTGROUP,TAXNUMBER1,VATNUMBER,CREATEDON,POSTINGBLOCK,DELETIONFLAG`
     '090'
     CHANGING et_return.
-  IF line_exists( et_return[ type = 'E' ] ).
-    RETURN.
-  ENDIF.
-
-  PERFORM vendor_auth_display CHANGING lr_ktokk_auth et_return.
   IF line_exists( et_return[ type = 'E' ] ).
     RETURN.
   ENDIF.
@@ -63,7 +55,7 @@
     WHERE lifnr IN @lr_lifnr AND name1 IN @lr_name1 AND sortl IN @lr_sortl
       AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND lifnr IN @lr_tax_lifnr
       AND stceg IN @lr_stceg AND erdat IN @lr_erdat AND sperr IN @lr_sperr
-      AND loevm IN @lr_loevm AND ktokk IN @lr_ktokk_auth
+      AND loevm IN @lr_loevm
     INTO @ev_total.
 
   SELECT lifnr, ktokk, name1, name2, sortl, stras, ort01, pstlz, regio, land1,
@@ -72,16 +64,12 @@
     WHERE lifnr IN @lr_lifnr AND name1 IN @lr_name1 AND sortl IN @lr_sortl
       AND land1 IN @lr_land1 AND ktokk IN @lr_ktokk AND lifnr IN @lr_tax_lifnr
       AND stceg IN @lr_stceg AND erdat IN @lr_erdat AND sperr IN @lr_sperr
-      AND loevm IN @lr_loevm AND ktokk IN @lr_ktokk_auth
+      AND loevm IN @lr_loevm
     ORDER BY lifnr DESCENDING
     INTO TABLE @DATA(lt_lfa1)
     UP TO @lv_top ROWS
     OFFSET @iv_skip.
   IF lt_lfa1 IS INITIAL.
-    PERFORM vendor_auth_denied USING lr_lifnr lr_ktokk_auth CHANGING et_return.
-    IF et_return IS NOT INITIAL.
-      RETURN.
-    ENDIF.
     APPEND VALUE #( BASE lcl_msg=>get( iv_no = '092' ) type = 'S' ) TO et_return.
     RETURN.
   ENDIF.
