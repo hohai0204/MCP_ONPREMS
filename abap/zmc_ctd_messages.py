@@ -166,6 +166,10 @@ MESSAGES = [
     ('112', 'Nhà cung cấp &1 đã có mã số thuế &2, không đổi qua chức năng này.', []),
     ('113', 'Chưa nhập mã số thuế của nhà cung cấp.', []),
     ('114', 'Mã số thuế "&1" không đúng định dạng (chỉ gồm số hoặc số-số).', []),
+    ('115', 'Bạn không có quyền &1 nhà cung cấp nhóm &2.', []),
+    ('116', 'Bạn không có quyền &1 vai trò BP &2 của nhà cung cấp.', []),
+    ('117', 'Bạn không có quyền &1 nhà cung cấp ở công ty &2.', []),
+    ('118', 'Bạn không có quyền &1 nhà cung cấp ở tổ chức mua hàng &2.', []),
 ]
 
 

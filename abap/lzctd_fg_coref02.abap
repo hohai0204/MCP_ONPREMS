@@ -3,6 +3,8 @@
 *----------------------------------------------------------------------*
 * Subroutine của ZCTD_FM_CREATE_BP - tạo BP + nhà cung cấp dùng được để
 * mua hàng trong MỘT lần lưu bằng CL_MD_BP_MAINTAIN (BP/CVI chuẩn S/4):
+*   bp_check_authority  quyền tạo / sửa: vai trò BP, nhóm tài khoản, công ty,
+*                       tổ chức mua hàng (bp_auth_check: một lần kiểm tra)
 *   bp_check_input    kiểm tra dữ liệu bắt buộc
 *   bp_default_org    công ty / tổ chức mua hàng + giá trị mặc định
 *   bp_build_partner  BP: dữ liệu chung, địa chỉ, liên lạc, role
@@ -15,6 +17,81 @@
 *   bp_build_change   chỉ đổi ô được truyền; công ty / tổ chức mua / role
 *                     chưa có thì mở thêm (NCC chưa có dữ liệu mua hàng -> 1000/1000)
 *----------------------------------------------------------------------*
+
+* Quyền tạo / sửa nhà cung cấp theo đối tượng quyền chuẩn của BP và nhà cung
+* cấp. IS_EXIST trống = tạo mới. Hoạt động 01 cho phần tạo mới / mở thêm, 02
+* cho phần đã có. Công ty / tổ chức mua hàng lấy như lúc lưu (không truyền và
+* chưa có -> 1000 / 1000).
+FORM bp_check_authority USING    is_supplier TYPE zctd_s_bp_supplier
+                                 is_exist    TYPE gty_bp_exist
+                                 it_company  TYPE gty_t_bp_company
+                                 it_purch    TYPE gty_t_bp_purch
+                        CHANGING ct_return   TYPE bapiret2_t.
+  DATA: lv_ktokk TYPE ktokk,
+        lv_group TYPE bu_group,
+        lv_actvt TYPE activ_auth,
+        lt_roles TYPE STANDARD TABLE OF bu_role WITH EMPTY KEY.
+
+  DATA(lv_change) = xsdbool( is_exist-lifnr IS NOT INITIAL ).
+
+  " nhóm tài khoản: đã có -> theo nhà cung cấp; tạo mới -> theo nhóm BP
+  IF lv_change = abap_true.
+    SELECT SINGLE ktokk FROM lfa1 WHERE lifnr = @is_exist-lifnr INTO @lv_ktokk.
+  ELSE.
+    lv_group = COND #( WHEN is_supplier-bu_group IS NOT INITIAL THEN is_supplier-bu_group ELSE gc_bp_group_def ).
+    SELECT SINGLE ktokk FROM tbc001 WHERE bu_group = @lv_group INTO @lv_ktokk.
+  ENDIF.
+  IF lv_ktokk IS NOT INITIAL.
+    lv_actvt = COND #( WHEN lv_change = abap_true THEN '02' ELSE '01' ).
+    PERFORM bp_auth_check USING 'F_LFA1_GRP' 'KTOKK' lv_ktokk lv_actvt '115' CHANGING ct_return.
+  ENDIF.
+
+  " vai trò BP: đã có -> sửa, chưa có -> tạo
+  lt_roles = VALUE #( ( gc_bp_role_fi ) ( gc_bp_role_purch ) ).
+  LOOP AT lt_roles INTO DATA(lv_role).
+    lv_actvt = COND #( WHEN line_exists( is_exist-t_role[ table_line = lv_role ] ) THEN '02' ELSE '01' ).
+    PERFORM bp_auth_check USING 'B_BUPA_RLT' 'RLTYP' lv_role lv_actvt '116' CHANGING ct_return.
+  ENDLOOP.
+
+  " công ty
+  DATA(lt_company) = it_company.
+  IF lt_company IS INITIAL AND is_exist-t_bukrs IS INITIAL.
+    lt_company = VALUE #( ( bukrs = gc_bp_bukrs_def ) ).
+  ENDIF.
+  LOOP AT lt_company INTO DATA(ls_company).
+    lv_actvt = COND #( WHEN line_exists( is_exist-t_bukrs[ table_line = ls_company-bukrs ] ) THEN '02' ELSE '01' ).
+    PERFORM bp_auth_check USING 'F_LFA1_BUK' 'BUKRS' ls_company-bukrs lv_actvt '117' CHANGING ct_return.
+  ENDLOOP.
+
+  " tổ chức mua hàng
+  DATA(lt_purch) = it_purch.
+  IF lt_purch IS INITIAL AND is_exist-t_ekorg IS INITIAL.
+    lt_purch = VALUE #( ( ekorg = gc_bp_ekorg_def ) ).
+  ENDIF.
+  LOOP AT lt_purch INTO DATA(ls_purch).
+    lv_actvt = COND #( WHEN line_exists( is_exist-t_ekorg[ table_line = ls_purch-ekorg ] ) THEN '02' ELSE '01' ).
+    PERFORM bp_auth_check USING 'M_LFM1_EKO' 'EKORG' ls_purch-ekorg lv_actvt '118' CHANGING ct_return.
+  ENDLOOP.
+ENDFORM.
+
+* Một lần kiểm tra quyền: đối tượng + một trường + hoạt động; thiếu quyền -> lỗi IV_MSGNO
+FORM bp_auth_check USING    iv_object TYPE xuobject
+                            iv_id     TYPE xufield
+                            iv_value  TYPE csequence
+                            iv_actvt  TYPE activ_auth
+                            iv_msgno  TYPE symsgno
+                   CHANGING ct_return TYPE bapiret2_t.
+  DATA lv_value TYPE c LENGTH 40.
+
+  lv_value = iv_value.
+  AUTHORITY-CHECK OBJECT iv_object ID iv_id FIELD lv_value ID 'ACTVT' FIELD iv_actvt.
+  IF sy-subrc <> 0.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = iv_msgno
+                                       iv_v1 = COND string( WHEN iv_actvt = '01' THEN `tạo` ELSE `sửa` )
+                                       iv_v2 = condense( lv_value ) )
+                    type = 'E' ) TO ct_return.
+  ENDIF.
+ENDFORM.
 
 FORM bp_check_input USING    is_supplier TYPE zctd_s_bp_supplier
                     CHANGING ct_return   TYPE bapiret2_t.

@@ -15,6 +15,9 @@
 * truyền trong IS_SUPPLIER / IT_COMPANY / IT_PURCHASING; công ty, tổ chức mua
 * hàng, role FLVN00/FLVN01 chưa có thì mở thêm; NCC chưa có dữ liệu công ty
 * hoặc mua hàng và không truyền gì -> tự mở 1000 / 1000.
+* Kiểm tra quyền trước mọi bước khác (tạo mới và đổi), theo đối tượng quyền
+* chuẩn của BP / nhà cung cấp: vai trò BP, nhóm tài khoản, công ty, tổ chức
+* mua hàng; hoạt động 01 khi tạo / mở thêm, 02 khi sửa phần đã có.
 * Các bước nằm trong include LZCTD_FG_COREF02.
 
   DATA: lt_data    TYPE cvis_ei_extern_t,
@@ -32,6 +35,10 @@
     IF et_return IS NOT INITIAL.
       RETURN.
     ENDIF.
+    PERFORM bp_check_authority USING is_supplier ls_exist it_company[] it_purchasing[] CHANGING et_return.
+    IF et_return IS NOT INITIAL.
+      RETURN.
+    ENDIF.
     PERFORM bp_build_change USING is_supplier ls_exist it_company[] it_purchasing[] CHANGING ls_data.
     PERFORM bp_change_taxnumber USING is_supplier ls_exist CHANGING ls_data et_return.
     IF et_return IS NOT INITIAL.
@@ -43,7 +50,13 @@
     RETURN.
   ENDIF.
 
-  " chưa có -> tạo mới: dữ liệu bắt buộc, rồi trùng mã số thuế (lỗi) / tên (cảnh báo)
+  " chưa có -> tạo mới: quyền, dữ liệu bắt buộc, rồi trùng mã số thuế (lỗi) / tên (cảnh báo)
+  PERFORM bp_default_org USING it_company[] it_purchasing[] CHANGING lt_company lt_purch.
+  PERFORM bp_check_authority USING is_supplier ls_exist lt_company lt_purch CHANGING et_return.
+  IF et_return IS NOT INITIAL.
+    RETURN.
+  ENDIF.
+
   PERFORM bp_check_input USING is_supplier CHANGING et_return.
   IF et_return IS INITIAL.
     PERFORM bp_check_duplicate USING is_supplier CHANGING et_return.
@@ -51,8 +64,6 @@
   IF line_exists( et_return[ type = 'E' ] ).
     RETURN.
   ENDIF.
-
-  PERFORM bp_default_org USING it_company[] it_purchasing[] CHANGING lt_company lt_purch.
 
   TRY.
       lv_guid = cl_system_uuid=>create_uuid_c32_static( ).
