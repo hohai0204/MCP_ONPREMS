@@ -135,3 +135,57 @@ FORM vendor_by_taxnumber USING    it_taxnum TYPE ty_r_taxnum
   DELETE ADJACENT DUPLICATES FROM lt_vendor.
   ct_lifnr = VALUE #( FOR l IN lt_vendor ( sign = 'I' option = 'EQ' low = l ) ).
 ENDFORM.
+
+* Quyền xem nhà cung cấp (như BP / XK03, hoạt động 03): vai trò BP FLVN00 hoặc
+* FLVN01, và nhóm tài khoản. CT_KTOKK = các nhóm được xem; trống = được xem
+* mọi nhóm. Không có quyền vai trò hoặc không nhóm nào -> lỗi 096.
+FORM vendor_auth_display CHANGING ct_ktokk  TYPE ty_r_ktokk
+                                  ct_return TYPE bapiret2_t.
+  DATA lv_denied TYPE abap_bool.
+
+  CLEAR ct_ktokk.
+  AUTHORITY-CHECK OBJECT 'B_BUPA_RLT' ID 'ACTVT' FIELD '03' ID 'RLTYP' FIELD 'FLVN00'.
+  IF sy-subrc <> 0.
+    AUTHORITY-CHECK OBJECT 'B_BUPA_RLT' ID 'ACTVT' FIELD '03' ID 'RLTYP' FIELD 'FLVN01'.
+  ENDIF.
+  IF sy-subrc <> 0.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '096' ) type = 'E' ) TO ct_return.
+    RETURN.
+  ENDIF.
+
+  SELECT ktokk FROM t077k INTO TABLE @DATA(lt_group).
+  LOOP AT lt_group INTO DATA(ls_group).
+    AUTHORITY-CHECK OBJECT 'F_LFA1_GRP' ID 'KTOKK' FIELD ls_group-ktokk ID 'ACTVT' FIELD '03'.
+    IF sy-subrc = 0.
+      APPEND VALUE #( sign = 'I' option = 'EQ' low = ls_group-ktokk ) TO ct_ktokk.
+    ELSE.
+      lv_denied = abap_true.
+    ENDIF.
+  ENDLOOP.
+  IF ct_ktokk IS INITIAL.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '096' ) type = 'E' ) TO ct_return.
+    RETURN.
+  ENDIF.
+  IF lv_denied = abap_false.
+    CLEAR ct_ktokk.          " được xem mọi nhóm -> không giới hạn
+  ENDIF.
+ENDFORM.
+
+* Hỏi đúng một nhà cung cấp mà không đọc được: nếu nó tồn tại ở nhóm không
+* được xem -> báo thiếu quyền (097) thay vì "không có nhà cung cấp".
+FORM vendor_auth_denied USING    it_lifnr  TYPE ty_r_lifnr
+                                 it_ktokk  TYPE ty_r_ktokk
+                        CHANGING ct_return TYPE bapiret2_t.
+  DATA: lv_lifnr TYPE lifnr,
+        lv_ktokk TYPE ktokk.
+
+  CHECK it_ktokk IS NOT INITIAL AND lines( it_lifnr ) = 1.
+  READ TABLE it_lifnr INTO DATA(ls_lifnr) INDEX 1.
+  CHECK ls_lifnr-sign = 'I' AND ls_lifnr-option = 'EQ'.
+  lv_lifnr = ls_lifnr-low.
+  SELECT SINGLE ktokk FROM lfa1 WHERE lifnr = @lv_lifnr INTO @lv_ktokk.
+  IF sy-subrc = 0 AND lv_ktokk NOT IN it_ktokk.
+    APPEND VALUE #( BASE lcl_msg=>get( iv_no = '097' iv_v1 = |{ lv_lifnr ALPHA = OUT }| iv_v2 = lv_ktokk )
+                    type = 'E' ) TO ct_return.
+  ENDIF.
+ENDFORM.
