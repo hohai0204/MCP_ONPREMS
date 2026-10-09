@@ -289,6 +289,27 @@ def sap_run_rfc(function_name: str, params: dict | None = None) -> dict:
 
 
 @mcp.tool()
+def sap_gateway_call(
+    uri: str,
+    method: str = "GET",
+    body: str | None = None,
+    headers: dict | None = None,
+) -> dict:
+    """Call an OData/Gateway service like transaction /IWFND/GW_CLIENT, over RFC
+    (no HTTP route to SAP needed; runs as the profile's RFC user/client).
+
+    uri: path + query, e.g. "/sap/opu/odata/sap/ZCTD_PO_INFO_SRV/POJsonSet('4100032903')/$value".
+         Must start with /sap/opu/odata/ or /sap/api/.
+    method: GET (default, always allowed) or POST/PUT/PATCH/MERGE/DELETE
+         (need SAP_ALLOW_WRITE=true; CSRF token is fetched automatically).
+    body: request body (JSON) for non-GET.
+    headers: extra request headers, e.g. {"X-Correlation-Id": "abc"}.
+    Requires ZCTD_FM_GW_TEST installed on the target system.
+    """
+    return _safe(tools.gateway_call, uri, method, body, headers)
+
+
+@mcp.tool()
 def sap_write_ddic(
     kind: str,
     name: str,

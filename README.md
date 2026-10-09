@@ -52,6 +52,7 @@ Claude Code  --stdio/MCP-->  server.py (FastMCP)
 | `sap_textpool_write`        | Write program text elements (Z-FM)   | **yes**      |
 | `sap_write_program`         | Create/update program (INACTIVE)     | **yes**      |
 | `sap_run_rfc`               | Call an arbitrary RFC-enabled FM     | **yes**      |
+| `sap_gateway_call`          | OData call like /IWFND/GW_CLIENT (GET free; other methods need write) | GET: no |
 
 ### Custom dispatcher `ZMCP_ADT_DISPATCH`
 

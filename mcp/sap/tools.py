@@ -970,6 +970,62 @@ def run_rfc(function_name: str, params: dict | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Gateway client over RFC (same mechanism as /IWFND/GW_CLIENT, no network):
+# user-installed ZCTD_FM_GW_TEST (FG ZCTD_FG_PO_INFO) drives
+# /IWFND/CL_SUTIL_CLIENT_PROXY inside SAP, so no HTTP route to SAP is needed.
+# ---------------------------------------------------------------------------
+_GW_FM = "ZCTD_FM_GW_TEST"
+_GW_PATH_PREFIXES = ("/sap/opu/odata/", "/sap/api/")
+_GW_BODY_LIMIT = 200_000  # chars returned to the agent
+
+
+def gateway_call(
+    uri: str,
+    method: str = "GET",
+    body: str | None = None,
+    headers: dict | None = None,
+) -> dict:
+    """Call an OData / Gateway service through ZCTD_FM_GW_TEST.
+
+    GET is always allowed. POST/PUT/PATCH/DELETE/MERGE require
+    SAP_ALLOW_WRITE=true. Only /sap/opu/odata/ and /sap/api/ paths are accepted.
+    """
+    m = (method or "GET").upper()
+    if m not in ("GET", "POST", "PUT", "PATCH", "MERGE", "DELETE"):
+        raise SapConnectionError(f"Unsupported HTTP method: {method}")
+    if m != "GET":
+        _require_write()
+    path = (uri or "").strip()
+    if not path.lower().startswith(_GW_PATH_PREFIXES) or ".." in path:
+        raise SapConnectionError(
+            "uri must start with /sap/opu/odata/ or /sap/api/ (no '..'): " + path
+        )
+    hdr = "\n".join(f"{k}: {v}" for k, v in (headers or {}).items())
+    res = get_client().call(
+        _GW_FM, IV_URI=path, IV_METHOD=m, IV_BODY=body or "", IV_HEADERS=hdr
+    )
+    out = res.get("EV_BODY") or ""
+    truncated = len(out) > _GW_BODY_LIMIT
+    ctype = res.get("EV_CONTENT_TYPE") or ""
+    parsed = None
+    if "json" in ctype.lower() and not truncated:
+        try:
+            parsed = json.loads(out)
+        except ValueError:
+            parsed = None
+    return {
+        "method": m,
+        "uri": path,
+        "status": res.get("EV_STATUS_CODE"),
+        "status_text": res.get("EV_STATUS_TEXT"),
+        "content_type": ctype,
+        "error": res.get("EV_ERROR") or None,
+        "body": parsed if parsed is not None else out[:_GW_BODY_LIMIT],
+        "truncated": truncated,
+    }
+
+
+# ---------------------------------------------------------------------------
 # DDIC create/update/delete via user-installed ZMCP_ADT_DDIC_* FMs
 # (group ZMCP_ADT_UTILS, adapted from superclaude-for-sap, see abap/).
 # Protocol: IV_ACTION/IV_NAME/IV_DEVCLASS/IV_TRANSPORT/IV_PAYLOAD_JSON
