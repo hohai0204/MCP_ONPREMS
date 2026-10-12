@@ -100,6 +100,12 @@ execution, arbitrary ABAP, mass delete, raw SQL, user admin, file transfer,
 kernel admin) even with `SAP_ALLOW_WRITE=true`. Override the pattern list via
 `SAP_FM_DENYLIST` (comma-separated, `*` wildcards).
 
+**Output limits:** every tool result is capped at `SAP_MAX_OUTPUT_BYTES`
+(default 200000, `0` = off); lists are cut and the result gets a `_truncated`
+note. `sap_read_table` also caps rows at `SAP_MAX_ROWS` (default 500) and pages
+with `offset` / `next_offset` / `has_more`. Prevents oversized results from
+dropping the MCP connection.
+
 ## Project layout
 
 ```

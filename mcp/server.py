@@ -8,6 +8,9 @@ Run:  python server.py         (stdio transport, for Claude Code / MCP clients)
 """
 from __future__ import annotations
 
+import json
+import os
+
 from mcp.server.fastmcp import FastMCP
 
 from sap import tools
@@ -16,12 +19,65 @@ from sap.connection import SapConnectionError
 mcp = FastMCP("sap-rfc-bridge")
 
 
+# Output cap: Claude Code drops the connection when a tool result (or several
+# parallel ones) gets huge, so every result is trimmed to SAP_MAX_OUTPUT_BYTES
+# (default 200 KB; 0 disables). Lists are cut, long strings shortened.
+def _max_output_bytes() -> int:
+    try:
+        return int((os.getenv("SAP_MAX_OUTPUT_BYTES") or "").strip() or 200_000)
+    except ValueError:
+        return 200_000
+
+
+def _size(obj) -> int:
+    return len(json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8"))
+
+
+def _shrink(obj, ratio: float):
+    if isinstance(obj, list):
+        keep = max(1, int(len(obj) * ratio))
+        return [_shrink(x, ratio) for x in obj[:keep]]
+    if isinstance(obj, dict):
+        return {k: _shrink(v, ratio) for k, v in obj.items()}
+    if isinstance(obj, str) and len(obj) > 400:
+        return obj[: max(200, int(len(obj) * ratio))]
+    return obj
+
+
+def _cap(result: dict) -> dict:
+    limit = _max_output_bytes()
+    if limit <= 0:
+        return result
+    size = _size(result)
+    if size <= limit:
+        return result
+    ratio = limit / size * 0.8
+    out = _shrink(result, ratio)
+    for _ in range(8):
+        if _size(out) <= limit:
+            break
+        ratio *= 0.6
+        out = _shrink(result, ratio)
+    # keep paging honest: resume right after the last row actually returned
+    if isinstance(out.get("rows"), list) and "offset" in out:
+        out["row_count"] = len(out["rows"])
+        out["has_more"] = True
+        out["next_offset"] = out["offset"] + len(out["rows"])
+    out["_truncated"] = {
+        "original_bytes": size,
+        "limit_bytes": limit,
+        "hint": "Output cut. Narrow with fields/where/max_rows, or page with offset.",
+    }
+    return out
+
+
 def _safe(fn, *args, **kwargs) -> dict:
     """Run a tool, converting connection errors into a structured result so the
-    MCP client sees a clean message instead of a stack trace."""
+    MCP client sees a clean message instead of a stack trace. Results are
+    capped to SAP_MAX_OUTPUT_BYTES."""
     try:
         result = fn(*args, **kwargs)
-        return result if isinstance(result, dict) else {"result": result}
+        return _cap(result if isinstance(result, dict) else {"result": result})
     except SapConnectionError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # last-resort guard
@@ -41,6 +97,7 @@ def sap_read_table(
     fields: list[str] | None = None,
     where: list[str] | None = None,
     max_rows: int = 100,
+    offset: int = 0,
 ) -> dict:
     """Read rows from a transparent SAP table via RFC_READ_TABLE.
 
@@ -49,9 +106,11 @@ def sap_read_table(
         fields: Optional list of column names to select (fewer = safer for the
             512-byte RFC_READ_TABLE row limit).
         where: Optional list of ABAP WHERE clauses, e.g. ["MANDT = '100'"].
-        max_rows: Maximum rows to return.
+        max_rows: Maximum rows to return (capped by SAP_MAX_ROWS, default 500).
+        offset: Rows to skip, for paging. Use `next_offset` from the previous
+            result when `has_more` is true.
     """
-    return _safe(tools.read_table, table, fields, where, max_rows)
+    return _safe(tools.read_table, table, fields, where, max_rows, offset)
 
 
 @mcp.tool()

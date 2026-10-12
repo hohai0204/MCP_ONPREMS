@@ -189,6 +189,7 @@ def read_table(
     fields: list[str] | None = None,
     where: list[str] | None = None,
     max_rows: int = 100,
+    offset: int = 0,
 ) -> dict:
     """Read a transparent table via RFC_READ_TABLE.
 
@@ -200,10 +201,17 @@ def read_table(
     deep/long fields. Good enough for Dictionary / repository metadata.
     """
     _check_table_allowed(table)
+    try:
+        row_cap = int((os.getenv("SAP_MAX_ROWS") or "").strip() or 500)
+    except ValueError:
+        row_cap = 500
+    want = max(1, min(int(max_rows), row_cap)) if row_cap > 0 else max(1, int(max_rows))
+    skip = max(0, int(offset or 0))
     call_kwargs: dict[str, Any] = {
         "QUERY_TABLE": table.upper(),
         "DELIMITER": "|",
-        "ROWCOUNT": int(max_rows),
+        "ROWCOUNT": want + 1,  # one extra row tells us whether more exist
+        "ROWSKIPS": skip,
     }
     if fields:
         call_kwargs["FIELDS"] = [{"FIELDNAME": f.upper()} for f in fields]
@@ -219,7 +227,15 @@ def read_table(
         parts = entry["WA"].split("|")
         rows.append({name: (parts[i].strip() if i < len(parts) else "")
                      for i, name in enumerate(names)})
-    return {"table": table.upper(), "fields": names, "row_count": len(rows), "rows": rows}
+    has_more = len(rows) > want
+    rows = rows[:want]
+    out = {"table": table.upper(), "fields": names, "row_count": len(rows), "rows": rows,
+           "offset": skip, "has_more": has_more}
+    if has_more:
+        out["next_offset"] = skip + want
+    if want < int(max_rows):
+        out["max_rows_capped_to"] = want
+    return out
 
 
 # ---------------------------------------------------------------------------
