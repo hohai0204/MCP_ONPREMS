@@ -1042,6 +1042,308 @@ def gateway_call(
 
 
 # ---------------------------------------------------------------------------
+# ST22 dump detail + SLG1 application log (plain table reads, no custom FM)
+# ---------------------------------------------------------------------------
+def _q(value: str) -> str:
+    """Quote a value for an ABAP WHERE literal."""
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _where_options(conds: list[str]) -> list[dict]:
+    return _wrap_options(" AND ".join(f"( {c} )" for c in conds))
+
+
+def _parse_snap_tags(chunk: str) -> list[tuple[str, str]]:
+    """Parse one SNAP.FLIST chunk: repeated <2-char tag><3-digit len><value>.
+    The last value may be cut by the chunk end; keep what is there."""
+    out, i = [], 0
+    while i + 5 <= len(chunk):
+        tag, ln = chunk[i:i + 2], chunk[i + 2:i + 5]
+        if not (tag.isalnum() and ln.isdigit()):
+            break
+        n = int(ln)
+        out.append((tag, chunk[i + 5:i + 5 + n].rstrip()))
+        i += 5 + n
+    return out
+
+
+# SY-fields kept in SNAP; longest names first so SY-MSGV1 wins over SY-MSGV
+_SY_NAMES = sorted([
+    "SY-SUBRC", "SY-INDEX", "SY-TABIX", "SY-DBCNT", "SY-FDPOS", "SY-LSIND",
+    "SY-PAGNO", "SY-LINNO", "SY-COLNO", "SY-PFKEY", "SY-UCOMM", "SY-MSGTY",
+    "SY-MSGID", "SY-MSGNO", "SY-MSGV1", "SY-MSGV2", "SY-MSGV3", "SY-MSGV4",
+    "SY-MODNO", "SY-DATUM", "SY-UZEIT", "SY-XPROG", "SY-XFORM", "SY-LILLI",
+    "SY-CPAGE", "SY-LISEL", "SY-STEPL", "SY-LOOPC", "SY-DYNNR", "SY-REPID",
+    "SY-CPROG", "SY-TCODE", "SY-UNAME", "SY-LANGU", "SY-MANDT", "SY-HOST",
+], key=len, reverse=True)
+
+
+def read_dump(
+    date: str | None = None,
+    time: str | None = None,
+    user: str | None = None,
+    client: str | None = None,
+    host: str | None = None,
+    days: int = 7,
+    context_lines: int = 5,
+    with_text: bool = True,
+) -> dict:
+    """Detail of one ST22 runtime error, read from table SNAP/SNAPT.
+
+    With no filters: the newest dump of the last `days` days. date=YYYYMMDD,
+    time=HHMMSS, user, client (MANDT of the dump) and host narrow the choice.
+    Returns error id, program/include/line, SY-fields, user/client, the error
+    texts (SNAPT) and the source around the failing line. The ABAP call stack
+    lives in a compressed part of SNAP and is not decoded here.
+    """
+    conds = ["SEQNO = '000'"]
+    if date:
+        conds.append(f"DATUM = {_q(date)}")
+    else:
+        since = (date_cls_today() - timedelta(days=int(days))).strftime("%Y%m%d")
+        conds.append(f"DATUM >= {_q(since)}")
+    for col, val in (("UZEIT", time), ("UNAME", (user or "").upper() or None),
+                     ("MANDT", client), ("AHOST", host)):
+        if val:
+            conds.append(f"{col} = {_q(val)}")
+    cand = get_client().call(
+        "RFC_READ_TABLE", QUERY_TABLE="SNAP", DELIMITER="|", ROWCOUNT=1000,
+        FIELDS=[{"FIELDNAME": f} for f in
+                ("DATUM", "UZEIT", "AHOST", "UNAME", "MANDT", "MODNO")],
+        OPTIONS=_where_options(conds),
+    )
+    keys = []
+    for e in cand.get("DATA", []):
+        p = [x.strip() for x in e["WA"].split("|")]
+        if len(p) >= 6:
+            keys.append(dict(zip(("date", "time", "host", "user", "client", "modno"), p)))
+    if not keys:
+        raise SapConnectionError("No dump found for the given filters.")
+    keys.sort(key=lambda k: (k["date"], k["time"]), reverse=True)
+    key = keys[0]
+
+    # all FLIST chunks of this dump; RFC_READ_TABLE trims trailing blanks of
+    # the WA, so slice by field offsets and keep chunks separate.
+    res = get_client().call(
+        "RFC_READ_TABLE", QUERY_TABLE="SNAP", DELIMITER="", ROWCOUNT=400,
+        FIELDS=[{"FIELDNAME": f} for f in ("SEQNO", "FLIST")],
+        OPTIONS=_where_options([
+            f"DATUM = {_q(key['date'])}", f"UZEIT = {_q(key['time'])}",
+            f"AHOST = {_q(key['host'])}", f"UNAME = {_q(key['user'])}",
+            f"MODNO = {_q(key['modno'])}", f"MANDT = {_q(key['client'])}",
+        ]),
+    )
+    fd = {f["FIELDNAME"]: (int(f["OFFSET"]), int(f["LENGTH"])) for f in res["FIELDS"]}
+    so, sl = fd["SEQNO"]
+    fo, fl = fd["FLIST"]
+    chunks = sorted(
+        (e["WA"][so:so + sl], e["WA"][fo:fo + fl]) for e in res.get("DATA", [])
+    )
+    tags: dict[str, str] = {}
+    sy: dict[str, str] = {}
+    for _seq, chunk in chunks:
+        for tag, val in _parse_snap_tags(chunk):
+            if tag == "SY":
+                name = next((n for n in _SY_NAMES if val.startswith(n)), None)
+                if name:
+                    sy[name] = val[len(name):].strip()
+            elif tag not in tags:
+                tags[tag] = val
+
+    errid = tags.get("FC", "")
+    out: dict[str, Any] = {
+        "date": key["date"], "time": key["time"], "host": key["host"],
+        "user": key["user"], "client": key["client"],
+        "runtime_error": errid,
+        "program": tags.get("AP", ""), "include": tags.get("AI", ""),
+        "line": int(tags["AL"]) if tags.get("AL", "").isdigit() else None,
+        "database": tags.get("ED", ""), "os": tags.get("EO", ""),
+        "sy": sy, "other_dumps_matching": len(keys) - 1,
+    }
+    if len(keys) > 1:
+        out["next_candidates"] = [
+            {k: c[k] for k in ("date", "time", "user", "client")} for c in keys[1:6]
+        ]
+
+    if with_text and errid:
+        lang = (get_client().config.conn_params.get("lang") or "EN")[:1].upper()
+        for lg in (lang, "E", "D"):
+            tr = read_table("SNAPT", ["TTYPE", "SEQNO", "TLINE"],
+                            [f"ERRID = {_q(errid)}", f"LANGU = {_q(lg)}"], 300)
+            if tr["rows"]:
+                break
+        groups: dict[str, list[str]] = {}
+        for r in sorted(tr["rows"], key=lambda r: (r["TTYPE"], r["SEQNO"])):
+            groups.setdefault(r["TTYPE"], []).append(r["TLINE"])
+        out["texts"] = {k: "\n".join(v) for k, v in groups.items()}
+
+    inc = out["include"] or out["program"]
+    if inc and out["line"] and context_lines >= 0:
+        try:
+            src = read_program(inc)["source"].split("\n")
+            lo = max(0, out["line"] - 1 - int(context_lines))
+            hi = min(len(src), out["line"] + int(context_lines))
+            out["source_context"] = [
+                {"line": n + 1, "text": src[n], "dump_line": n + 1 == out["line"]}
+                for n in range(lo, hi)
+            ]
+        except Exception as exc:  # include not readable (kernel/standard)
+            out["source_context_error"] = str(exc)[:200]
+    return out
+
+
+def date_cls_today() -> date:
+    return date.today()
+
+
+_APPLOG_FM = "ZMCP_ADT_APPLOG"
+
+
+def read_applog(
+    log_object: str | None = None,
+    subobject: str | None = None,
+    user: str | None = None,
+    extnumber: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    max_logs: int = 10,
+    with_messages: bool = True,
+    max_messages: int = 100,
+) -> dict:
+    """Application log (SLG1) read from BALHDR/BALM, newest logs first.
+
+    Filter by log_object/subobject (SLG0 names), user, external number and date
+    range (YYYYMMDD). Messages are resolved to text via T100 (&1..&4 filled).
+    Defaults to the last 7 days when no date is given.
+    """
+    conds: list[str] = []
+    if log_object:
+        conds.append(f"OBJECT = {_q(log_object.upper())}")
+    if subobject:
+        conds.append(f"SUBOBJECT = {_q(subobject.upper())}")
+    if user:
+        conds.append(f"ALUSER = {_q(user.upper())}")
+    if extnumber:
+        conds.append(f"EXTNUMBER = {_q(extnumber)}")
+    if not date_from and not date_to:
+        date_from = (date.today() - timedelta(days=7)).strftime("%Y%m%d")
+    if date_from:
+        conds.append(f"ALDATE >= {_q(date_from)}")
+    if date_to:
+        conds.append(f"ALDATE <= {_q(date_to)}")
+    hdr = read_table(
+        "BALHDR",
+        ["LOGNUMBER", "OBJECT", "SUBOBJECT", "EXTNUMBER", "ALDATE", "ALTIME",
+         "ALUSER", "ALPROG", "ALTCODE", "ALMODE", "MSG_CNT_E", "MSG_CNT_A",
+         "MSG_CNT_W", "MSG_CNT_I", "MSG_CNT_S"],
+        conds or None, 500,
+    )
+    logs = sorted(hdr["rows"], key=lambda r: (r["ALDATE"], r["ALTIME"], r["LOGNUMBER"]),
+                  reverse=True)
+    total = len(logs)
+    logs = logs[: int(max_logs)]
+    result: dict[str, Any] = {"total_found": total, "logs": []}
+    if not with_messages:
+        result["logs"] = logs
+        return result
+
+    lang = (get_client().config.conn_params.get("lang") or "EN")[:1].upper()
+
+    # Preferred: ZMCP_ADT_APPLOG (abap/zmcp_adt_applog.abap) reads the BALDAT
+    # cluster through BAL_DB_LOAD. BALM is often empty, so plain table reads
+    # miss the messages. Falls back to BALM when the FM is not installed.
+    def _count(lg: dict) -> int:
+        return sum(int(lg.get(k) or 0) for k in
+                   ("MSG_CNT_E", "MSG_CNT_A", "MSG_CNT_W", "MSG_CNT_I", "MSG_CNT_S"))
+
+    want = [lg["LOGNUMBER"] for lg in logs if _count(lg) > 0]
+    via_fm: dict[str, dict] = {}
+    fm_error = ""
+    if want:
+        try:
+            res = get_client().call(
+                _APPLOG_FM,
+                IV_PARAMS=json.dumps({"lognumbers": want,
+                                      "max_messages": int(max_messages),
+                                      "langu": lang}),
+            )
+            if res.get("EV_SUBRC", 0) == 0 and res.get("EV_RESULT"):
+                for item in json.loads(res["EV_RESULT"]):
+                    via_fm[item["LOGNUMBER"]] = item
+            else:
+                fm_error = res.get("EV_MESSAGE") or "unknown error"
+        except SapConnectionError as exc:
+            fm_error = str(exc)[:200]
+    if via_fm:
+        for lg in logs:
+            item = via_fm.get(lg["LOGNUMBER"])
+            if item is None:
+                lg["messages"] = []
+                continue
+            lg["messages"] = [
+                {"type": m.get("TYPE"), "id": m.get("ID"), "no": m.get("NO"),
+                 "text": m.get("TEXT"), "time_stmp": m.get("TIME_STMP")}
+                for m in item.get("MESSAGES", [])
+            ]
+            if item.get("TRUNCATED"):
+                lg["messages_truncated"] = True
+            if item.get("ERROR"):
+                lg["messages_error"] = item["ERROR"]
+        result["logs"] = logs
+        return result
+
+    t100: dict[tuple[str, str], str] = {}
+
+    def _text(msgid: str, msgno: str) -> str:
+        k = (msgid, msgno)
+        if k not in t100:
+            try:
+                r = read_table("T100", ["TEXT"],
+                               [f"SPRSL = {_q(lang)}", f"ARBGB = {_q(msgid)}",
+                                f"MSGNR = {_q(msgno)}"], 1)
+                t100[k] = r["rows"][0]["TEXT"] if r["rows"] else ""
+            except SapConnectionError:
+                t100[k] = ""
+        return t100[k]
+
+    for lg in logs:
+        try:
+            ms = read_table(
+                "BALM",
+                ["MSGNUMBER", "MSGTY", "MSGID", "MSGNO", "MSGV1", "MSGV2", "MSGV3", "MSGV4"],
+                [f"LOGNUMBER = {_q(lg['LOGNUMBER'])}"], int(max_messages),
+            )["rows"]
+        except SapConnectionError as exc:
+            lg["messages_error"] = str(exc)[:200]
+            continue
+        msgs = []
+        for m in sorted(ms, key=lambda r: r["MSGNUMBER"]):
+            text = _text(m["MSGID"], m["MSGNO"]) if m["MSGID"] else ""
+            vals = [m["MSGV1"], m["MSGV2"], m["MSGV3"], m["MSGV4"]]
+            if text:
+                for n, v in enumerate(vals, 1):
+                    text = text.replace(f"&{n}", v)
+                # leftover '&' placeholders take the values in order
+                for v in vals:
+                    text = text.replace("&", v, 1) if "&" in text else text
+            else:
+                text = " ".join(v for v in vals if v)
+            msgs.append({"type": m["MSGTY"], "id": m["MSGID"], "no": m["MSGNO"],
+                         "text": text.strip()})
+        lg["messages"] = msgs
+        counted = sum(int(lg.get(k) or 0) for k in
+                      ("MSG_CNT_E", "MSG_CNT_A", "MSG_CNT_W", "MSG_CNT_I", "MSG_CNT_S"))
+        if counted and not msgs:
+            lg["messages_note"] = (
+                "Header says messages exist but BALM is empty (BALDAT cluster). "
+                f"Install abap/zmcp_adt_applog.abap ({_APPLOG_FM}) to read them."
+                + (f" FM call failed: {fm_error}" if fm_error else "")
+            )
+    result["logs"] = logs
+    return result
+
+
+# ---------------------------------------------------------------------------
 # DDIC create/update/delete via user-installed ZMCP_ADT_DDIC_* FMs
 # (group ZMCP_ADT_UTILS, adapted from superclaude-for-sap, see abap/).
 # Protocol: IV_ACTION/IV_NAME/IV_DEVCLASS/IV_TRANSPORT/IV_PAYLOAD_JSON

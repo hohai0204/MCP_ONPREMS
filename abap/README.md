@@ -16,6 +16,7 @@ you reuse the toolset across projects.
 | `zmcp_adt_ddic_dtel.abap` | `ZMCP_ADT_DDIC_DTEL` | Create/update/delete data elements |
 | `zmcp_adt_ddic_doma.abap` | `ZMCP_ADT_DDIC_DOMA` | Create/update/delete domains |
 | `zmcp_adt_ddic_activate.abap` | `ZMCP_ADT_DDIC_ACTIVATE` | Activate staged DDIC objects |
+| `zmcp_adt_applog.abap` | `ZMCP_ADT_APPLOG` | Read application-log (SLG1) messages from the BALDAT cluster; own function group `ZMCP_ADT_APPLOG` |
 
 All live in function group **`ZMCP_ADT_UTILS`**. The four DDIC FMs are adapted
 from [superclaude-for-sap](https://github.com/babamba2/superclaude-for-sap)
@@ -49,6 +50,14 @@ your own converter.
    EV_MESSAGE/EV_RESULT; the ACTIVATE FM takes IV_TYPE/IV_NAME). Paste each
    body, activate.
 5. Assign to a transport (or `$TMP` for a sandbox) and activate the group.
+
+**`ZMCP_ADT_APPLOG` (optional, for `sap_read_applog` messages).** Own function
+group `ZMCP_ADT_APPLOG` (a separate group, so the core bridge group is not
+touched). Create FG + one Remote-Enabled FM `ZMCP_ADT_APPLOG`: importing
+`IV_PARAMS TYPE STRING`; exporting `EV_SUBRC TYPE I`, `EV_MESSAGE TYPE STRING`,
+`EV_RESULT TYPE STRING`; body from `zmcp_adt_applog.abap` (between the
+interface comment block and `ENDFUNCTION`). Without it the tool still lists log
+headers but cannot show messages when BALM is empty.
 
 > Updating an existing install: paste the whole body over the current FM source
 > and re-activate — `zmcp_adt_dispatch.abap` already includes the original

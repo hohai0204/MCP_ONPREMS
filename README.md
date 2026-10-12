@@ -53,6 +53,8 @@ Claude Code  --stdio/MCP-->  server.py (FastMCP)
 | `sap_write_program`         | Create/update program (INACTIVE)     | **yes**      |
 | `sap_run_rfc`               | Call an arbitrary RFC-enabled FM     | **yes**      |
 | `sap_gateway_call`          | OData call like /IWFND/GW_CLIENT (GET free; other methods need write) | GET: no |
+| `sap_read_dump`             | ST22 dump detail: error, program/line, SY-fields, source context | no |
+| `sap_read_applog`           | SLG1 application log headers + messages (needs `ZMCP_ADT_APPLOG`, see `abap/README.md`) | no |
 
 ### Custom dispatcher `ZMCP_ADT_DISPATCH`
 

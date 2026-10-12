@@ -197,6 +197,49 @@ def sap_list_dumps(days: int = 7, max_rows: int = 50) -> dict:
 
 
 @mcp.tool()
+def sap_read_dump(
+    date: str | None = None,
+    time: str | None = None,
+    user: str | None = None,
+    client: str | None = None,
+    host: str | None = None,
+    days: int = 7,
+    context_lines: int = 5,
+    with_text: bool = True,
+) -> dict:
+    """Detail of one ST22 runtime error (pair with sap_list_dumps).
+
+    No filters = newest dump of the last `days` days. Narrow with date
+    (YYYYMMDD), time (HHMMSS), user, client (MANDT of the dump), host.
+    Returns runtime error, program/include/line, SY-fields, error texts and the
+    source around the failing line (context_lines each side).
+    """
+    return _safe(tools.read_dump, date, time, user, client, host, days,
+                 context_lines, with_text)
+
+
+@mcp.tool()
+def sap_read_applog(
+    log_object: str | None = None,
+    subobject: str | None = None,
+    user: str | None = None,
+    extnumber: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    max_logs: int = 10,
+    with_messages: bool = True,
+    max_messages: int = 100,
+) -> dict:
+    """Read application log entries (SLG1), newest first, with message texts.
+
+    Filter by log_object/subobject, user, extnumber, date_from/date_to
+    (YYYYMMDD; default last 7 days). Set with_messages=False for headers only.
+    """
+    return _safe(tools.read_applog, log_object, subobject, user, extnumber,
+                 date_from, date_to, max_logs, with_messages, max_messages)
+
+
+@mcp.tool()
 def sap_list_transports(
     user: str | None = None,
     status: str | None = None,

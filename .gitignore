@@ -24,3 +24,6 @@ venv/
 
 # SAP RFC SDK trace files
 rfc*.trc
+
+# RFC trace / runtime logs live here
+logs/

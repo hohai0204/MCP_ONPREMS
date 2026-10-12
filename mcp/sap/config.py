@@ -54,6 +54,23 @@ _BUNDLED_SDK = _PROJECT_ROOT / "vendor" / "nwrfcsdk"
 _BUNDLED_SDK_MACOS = _PROJECT_ROOT / "vendor" / "nwrfcsdk-macos"
 
 
+def _configure_rfc_trace_dir() -> None:
+    """Send NW RFC SDK trace files (rfc*.trc) and dev_rfc.log to
+    <repo>/logs/rfc-trace instead of the working directory. Respects an
+    RFC_TRACE_DIR already set by the caller. Must run before pyrfc is imported."""
+    if (os.getenv("RFC_TRACE_DIR") or "").strip():
+        return
+    target = _PROJECT_ROOT.parent / "logs" / "rfc-trace"
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    os.environ["RFC_TRACE_DIR"] = str(target)
+
+
+_configure_rfc_trace_dir()
+
+
 def _clean(value: str | None) -> str:
     return (value or "").strip()
 
