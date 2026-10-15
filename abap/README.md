@@ -17,6 +17,7 @@ you reuse the toolset across projects.
 | `zmcp_adt_ddic_doma.abap` | `ZMCP_ADT_DDIC_DOMA` | Create/update/delete domains |
 | `zmcp_adt_ddic_activate.abap` | `ZMCP_ADT_DDIC_ACTIVATE` | Activate staged DDIC objects |
 | `zmcp_adt_applog.abap` | `ZMCP_ADT_APPLOG` | Read application-log (SLG1) messages from the BALDAT cluster; own function group `ZMCP_ADT_APPLOG` |
+| `zmcp_adt_gwlog.abap` | `ZMCP_ADT_GWLOG` | Read the Gateway error log (`/IWFND/SU_ERRLOG`, string columns that RFC_READ_TABLE cannot read); same function group `ZMCP_ADT_APPLOG` |
 
 All live in function group **`ZMCP_ADT_UTILS`**. The four DDIC FMs are adapted
 from [superclaude-for-sap](https://github.com/babamba2/superclaude-for-sap)
@@ -58,6 +59,16 @@ touched). Create FG + one Remote-Enabled FM `ZMCP_ADT_APPLOG`: importing
 `EV_RESULT TYPE STRING`; body from `zmcp_adt_applog.abap` (between the
 interface comment block and `ENDFUNCTION`). Without it the tool still lists log
 headers but cannot show messages when BALM is empty.
+
+**`ZMCP_ADT_GWLOG` (optional, for `sap_gateway_errors` and the diagnosis of
+`sap_gateway_test`).** Second Remote-Enabled FM in the function group
+`ZMCP_ADT_APPLOG`, same interface (`IV_PARAMS TYPE STRING`; `EV_SUBRC TYPE I`,
+`EV_MESSAGE`, `EV_RESULT TYPE STRING`), body from `zmcp_adt_gwlog.abap`.
+Needs read authorization for the Gateway configuration (the same check the
+standard `/IWFND/SUTIL_*` FMs use). `ERROR_CONTEXT` is gzip XML and is not
+decoded yet; the rest of the entry (text, source program/line, URI) is.
+`sap_gateway_admin` needs no custom object: it calls the standard FMs
+`/IWFND/SUTIL_CLEANUP_MD_CACHE` and `/IWBEP/SUTIL_CLEANUP_MD_CACHE`.
 
 > Updating an existing install: paste the whole body over the current FM source
 > and re-activate — `zmcp_adt_dispatch.abap` already includes the original

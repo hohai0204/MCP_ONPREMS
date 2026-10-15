@@ -53,6 +53,9 @@ Claude Code  --stdio/MCP-->  server.py (FastMCP)
 | `sap_write_program`         | Create/update program (INACTIVE)     | **yes**      |
 | `sap_run_rfc`               | Call an arbitrary RFC-enabled FM     | **yes**      |
 | `sap_gateway_call`          | OData call like /IWFND/GW_CLIENT (GET free; other methods need write) | GET: no |
+| `sap_gateway_errors`        | Gateway error log (/IWFND/ERROR_LOG) with summary by service/status (needs `ZMCP_ADT_GWLOG`) | no |
+| `sap_gateway_admin`         | Registered services (`status`) and metadata cache clear (`clear_cache`) | status: no / clear_cache: **yes** |
+| `sap_gateway_test`          | Batch OData test cases with assertions, `{{var}}` chaining, auto error-log diagnosis | GET: no |
 | `sap_read_dump`             | ST22 dump detail: error, program/line, SY-fields, source context | no |
 | `sap_read_applog`           | SLG1 application log headers + messages (needs `ZMCP_ADT_APPLOG`, see `abap/README.md`) | no |
 

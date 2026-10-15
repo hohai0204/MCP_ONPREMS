@@ -412,6 +412,65 @@ def sap_gateway_call(
 
 
 @mcp.tool()
+def sap_gateway_errors(
+    minutes: int = 60,
+    user: str | None = None,
+    service: str | None = None,
+    uri_part: str | None = None,
+    min_status: int = 0,
+    opid: str | None = None,
+    max_rows: int = 20,
+    with_context: bool = False,
+) -> dict:
+    """Gateway error log (/IWFND/ERROR_LOG), newest first, with a summary by
+    service/status/error text. Use it right after a 4xx/5xx from an OData call.
+
+    minutes: look-back window (default 60). service/uri_part take '%'
+    wildcards. min_status=400 keeps only failures. opid returns every entry of
+    one failed request (the id shown in the error response).
+    Requires ZMCP_ADT_GWLOG (abap/zmcp_adt_gwlog.abap).
+    """
+    return _safe(tools.gateway_errors, minutes, user, service, uri_part,
+                 min_status, opid, max_rows, with_context)
+
+
+@mcp.tool()
+def sap_gateway_admin(
+    action: str = "status",
+    service: str | None = None,
+    version: str = "0001",
+) -> dict:
+    """Gateway service administration.
+
+    action=status: registered services (/IWFND/MAINT_SERVICE view) with model
+      ids and last change; `service` accepts '%' wildcards. Read only.
+    action=clear_cache: clear the metadata cache of one service so changed
+      entity sets/fields show up (/IWFND/CACHE_CLEANUP + /IWBEP/CACHE_CLEANUP).
+      Disabled unless SAP_ALLOW_WRITE=true (or both cleanup FMs are on
+      SAP_RFC_READONLY_ALLOW). The cache is system-wide, not per client.
+    """
+    return _safe(tools.gateway_admin, action, service, version)
+
+
+@mcp.tool()
+def sap_gateway_test(
+    cases: list[dict],
+    stop_on_fail: bool = False,
+    diagnose: bool = True,
+) -> dict:
+    """Run a batch of OData test cases and report pass/fail per case.
+
+    case: {name, uri, method="GET", body, headers, expect_status (int or list,
+    default any 2xx), expect_contains, expect_json: [{path:"d.results.0.Matnr",
+    equals|contains|min|max|count_min|exists}], save: {var: "d.Key"}}.
+    `{{var}}` in later cases is replaced by a saved value, so POST -> GET
+    chains work. Non-GET cases need SAP_ALLOW_WRITE=true. With diagnose=True a
+    failed 4xx/5xx case attaches the newest Gateway error-log entries.
+    """
+    return _safe(tools.gateway_test, cases, stop_on_fail, diagnose)
+
+
+@mcp.tool()
 def sap_write_ddic(
     kind: str,
     name: str,

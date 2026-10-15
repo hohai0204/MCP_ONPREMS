@@ -17,7 +17,7 @@ import fnmatch
 import json
 import os
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from .connection import SapConnectionError, get_client
@@ -1039,6 +1039,298 @@ def gateway_call(
         "body": parsed if parsed is not None else out[:_GW_BODY_LIMIT],
         "truncated": truncated,
     }
+
+
+# ---------------------------------------------------------------------------
+# Gateway admin / error log / test runner
+# ---------------------------------------------------------------------------
+_GWLOG_FM = "ZMCP_ADT_GWLOG"
+_GW_CACHE_FMS = ("/IWFND/SUTIL_CLEANUP_MD_CACHE", "/IWBEP/SUTIL_CLEANUP_MD_CACHE")
+
+
+def gateway_errors(
+    minutes: int = 60,
+    user: str | None = None,
+    service: str | None = None,
+    uri_part: str | None = None,
+    min_status: int = 0,
+    opid: str | None = None,
+    max_rows: int = 20,
+    with_context: bool = False,
+) -> dict:
+    """Gateway error log (/IWFND/ERROR_LOG), newest first.
+
+    RFC_READ_TABLE cannot read /IWFND/SU_ERRLOG (string columns), so this goes
+    through ZMCP_ADT_GWLOG (abap/zmcp_adt_gwlog.abap). `service` and `uri_part`
+    accept '%' wildcards; `opid` returns all entries of one failed request.
+    """
+    params = {"minutes": int(minutes), "max_rows": int(max_rows),
+              "with_context": bool(with_context)}
+    for k, v in (("username", user), ("service", service),
+                 ("uri_part", uri_part), ("opid", opid)):
+        if v:
+            params[k] = str(v)
+    if min_status:
+        params["min_status"] = int(min_status)
+    try:
+        res = get_client().call(_GWLOG_FM, IV_PARAMS=json.dumps(params))
+    except SapConnectionError as exc:
+        raise SapConnectionError(
+            f"{_GWLOG_FM} not usable ({str(exc)[:200]}). Install "
+            "abap/zmcp_adt_gwlog.abap, see abap/README.md."
+        ) from exc
+    if res.get("EV_SUBRC", 0) != 0:
+        raise SapConnectionError(res.get("EV_MESSAGE") or "gateway log read failed")
+    rows = json.loads(res.get("EV_RESULT") or "[]")
+    summary: dict[tuple, int] = {}
+    for r in rows:
+        key = (r.get("SERVICE_NAME"), r.get("HTTP_STATUS"), r.get("ERROR_TEXT"))
+        summary[key] = summary.get(key, 0) + 1
+    return {
+        "minutes": int(minutes),
+        "count": len(rows),
+        "summary": [
+            {"service": k[0], "http_status": k[1], "error_text": k[2], "entries": n}
+            for k, n in sorted(summary.items(), key=lambda kv: -kv[1])
+        ],
+        "entries": rows,
+    }
+
+
+def _gw_registry(service: str | None, version: str | None) -> list[dict]:
+    """Registered gateway services (/IWFND/I_MED_SRH) with their models."""
+    conds = ["IS_ACTIVE = 'A'"]
+    if service:
+        op = "LIKE" if "%" in service else "="
+        conds.append(f"SERVICE_NAME {op} {_q(service.upper())}")
+    if version:
+        conds.append(f"SERVICE_VERSION = {_q(str(version).zfill(4))}")
+    rows = read_table(
+        "/IWFND/I_MED_SRH",
+        ["SRV_IDENTIFIER", "NAMESPACE", "SERVICE_NAME", "SERVICE_VERSION",
+         "CHANGED_BY", "CHANGED_TIMESTMP"],
+        conds, 200,
+    )["rows"]
+    for r in rows:
+        try:
+            models = read_table(
+                "/IWFND/I_MED_SRG", ["MODEL_IDENTIFIER"],
+                [f"SRV_IDENTIFIER = {_q(r['SRV_IDENTIFIER'])}", "IS_ACTIVE = 'A'"], 10,
+            )["rows"]
+        except SapConnectionError:
+            models = []
+        r["models"] = [m["MODEL_IDENTIFIER"] for m in models]
+    return rows
+
+
+def gateway_admin(
+    action: str = "status",
+    service: str | None = None,
+    version: str = "0001",
+) -> dict:
+    """Gateway service administration over RFC.
+
+    status      registered services (name, version, who/when changed, model ids);
+                `service` may use '%' wildcards. Read only.
+    clear_cache drop the metadata cache of one service (the /IWFND/CACHE_CLEANUP
+                and /IWBEP/CACHE_CLEANUP steps). Needs SAP_ALLOW_WRITE=true
+                unless both cleanup FMs are on SAP_RFC_READONLY_ALLOW.
+    """
+    act = (action or "status").lower()
+    if act == "status":
+        rows = _gw_registry(service, version if service else None)
+        return {"action": "status", "count": len(rows), "services": rows}
+    if act != "clear_cache":
+        raise SapConnectionError("action must be 'status' or 'clear_cache'")
+    if not service or "%" in service:
+        raise SapConnectionError("clear_cache needs an exact service name")
+    if not all(_rfc_readonly_allowed(f) for f in _GW_CACHE_FMS):
+        _require_write()
+    for f in _GW_CACHE_FMS:
+        _check_fm_allowed(f)
+    reg = _gw_registry(service, version)
+    if not reg:
+        raise SapConnectionError(
+            f"Service {service.upper()} version {version} is not registered "
+            "(see action=status; register it in /IWFND/MAINT_SERVICE)."
+        )
+    r = reg[0]
+    ns = (r.get("NAMESPACE") or "").strip()
+    ver = str(version).zfill(4)
+    out: dict[str, Any] = {"action": "clear_cache", "service": r["SERVICE_NAME"],
+                           "version": ver, "steps": []}
+    hub = get_client().call(
+        _GW_CACHE_FMS[0], IV_MODE="A", IV_NAMESPACE=ns,
+        IV_EXT_SERVICE_NAME=r["SERVICE_NAME"], IV_SERVICE_VERSION=ver,
+    )
+    out["steps"].append({"fm": _GW_CACHE_FMS[0],
+                         "error_text": (hub.get("EV_ERROR_TEXT") or "").strip() or None})
+    for model in (r.get("models") or [""]):
+        be = get_client().call(
+            _GW_CACHE_FMS[1], IV_NAMESPACE=ns,
+            IV_EXT_SERVICE_NAME=r["SERVICE_NAME"], IV_SERVICE_VERSION=ver,
+            IV_MODEL_ID=model,
+        )
+        out["steps"].append({"fm": _GW_CACHE_FMS[1], "model": model or None,
+                             "error_text": (be.get("EV_ERROR_TEXT") or "").strip() or None})
+    out["ok"] = all(not st["error_text"] for st in out["steps"])
+    return out
+
+
+def _json_path(data: Any, path: str) -> tuple[bool, Any]:
+    """Resolve 'd.results.0.Matnr' against parsed JSON. Returns (found, value)."""
+    cur = data
+    for part in [p for p in (path or "").split(".") if p != ""]:
+        if isinstance(cur, list):
+            try:
+                cur = cur[int(part)]
+            except (ValueError, IndexError):
+                return False, None
+        elif isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return False, None
+    return True, cur
+
+
+def _gw_check(case: dict, res: dict) -> list[str]:
+    """Assertion failures for one executed case (empty list = pass)."""
+    fails: list[str] = []
+    status = res.get("status")
+    try:
+        status = int(status)
+    except (TypeError, ValueError):
+        pass
+    exp = case.get("expect_status")
+    if exp is None:
+        ok = isinstance(status, int) and 200 <= status < 300
+        exp_txt = "2xx"
+    else:
+        exp_list = exp if isinstance(exp, list) else [exp]
+        ok = status in [int(e) for e in exp_list]
+        exp_txt = "/".join(str(e) for e in exp_list)
+    if not ok:
+        fails.append(f"status {status}, expected {exp_txt}")
+    body = res.get("body")
+    text = body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)
+    needle = case.get("expect_contains")
+    if needle and str(needle) not in (text or ""):
+        fails.append(f"body does not contain {needle!r}")
+    for a in case.get("expect_json") or []:
+        found, val = _json_path(body, a.get("path", ""))
+        label = a.get("path", "")
+        if a.get("exists") is False:
+            if found:
+                fails.append(f"{label} should not exist")
+            continue
+        if not found:
+            fails.append(f"{label} missing")
+            continue
+        if "equals" in a and str(val) != str(a["equals"]):
+            fails.append(f"{label} = {val!r}, expected {a['equals']!r}")
+        if "contains" in a and str(a["contains"]) not in str(val):
+            fails.append(f"{label} = {val!r} lacks {a['contains']!r}")
+        for key, test in (("min", lambda v, e: float(v) >= float(e)),
+                          ("max", lambda v, e: float(v) <= float(e))):
+            if key in a:
+                try:
+                    if not test(val, a[key]):
+                        fails.append(f"{label} = {val!r}, {key} {a[key]}")
+                except (TypeError, ValueError):
+                    fails.append(f"{label} = {val!r} is not numeric")
+        if "count_min" in a:
+            n = len(val) if isinstance(val, (list, dict, str)) else -1
+            if n < int(a["count_min"]):
+                fails.append(f"{label} has {n} item(s), need >= {a['count_min']}")
+    return fails
+
+
+def _gw_subst(value: Any, env: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        for k, v in env.items():
+            value = value.replace("{{" + k + "}}", v)
+        return value
+    if isinstance(value, dict):
+        return {k: _gw_subst(v, env) for k, v in value.items()}
+    return value
+
+
+def gateway_test(
+    cases: list[dict],
+    stop_on_fail: bool = False,
+    diagnose: bool = True,
+) -> dict:
+    """Run a list of OData test cases and assert on the results.
+
+    case = {name, uri, method (GET), body, headers, expect_status (int|list,
+    default any 2xx), expect_contains, expect_json: [{path, equals|contains|
+    min|max|count_min|exists}], save: {var: path}}. `{{var}}` in later cases is
+    replaced by a saved value (chain POST -> GET). Non-GET needs SAP_ALLOW_WRITE.
+    diagnose=True attaches the newest Gateway error-log entries when a case
+    fails with HTTP >= 400 (needs ZMCP_ADT_GWLOG).
+    """
+    if not isinstance(cases, list) or not cases:
+        raise SapConnectionError("cases must be a non-empty list")
+    if len(cases) > 100:
+        raise SapConnectionError("at most 100 cases per run")
+    env: dict[str, str] = {}
+    results: list[dict] = []
+    started = datetime.now()
+    failed_http = False
+    for i, raw in enumerate(cases, 1):
+        case = dict(raw)
+        name = case.get("name") or f"case {i}"
+        item: dict[str, Any] = {"name": name, "pass": False}
+        t0 = datetime.now()
+        try:
+            uri = _gw_subst(case.get("uri", ""), env)
+            body = _gw_subst(case.get("body"), env)
+            if body is not None and not isinstance(body, str):
+                body = json.dumps(body, ensure_ascii=False)
+            res = gateway_call(uri, case.get("method", "GET"), body,
+                               _gw_subst(case.get("headers"), env))
+            item.update(method=res["method"], uri=uri, status=res["status"])
+            fails = _gw_check(case, res)
+            if res.get("error") and case.get("expect_status") is None:
+                fails.append(f"gateway error: {res['error']}")
+            for var, path in (case.get("save") or {}).items():
+                found, val = _json_path(res.get("body"), path)
+                if found:
+                    env[var] = str(val)
+                else:
+                    fails.append(f"save {var}: {path} missing")
+            item["pass"] = not fails
+            if fails:
+                item["failures"] = fails
+                snippet = res.get("body")
+                item["body_snippet"] = (snippet if isinstance(snippet, str)
+                                        else json.dumps(snippet, ensure_ascii=False))[:400]
+                try:
+                    if int(res.get("status") or 0) >= 400:
+                        failed_http = True
+                except (TypeError, ValueError):
+                    pass
+        except SapConnectionError as exc:
+            item["failures"] = [str(exc)[:300]]
+        item["ms"] = int((datetime.now() - t0).total_seconds() * 1000)
+        results.append(item)
+        if stop_on_fail and not item["pass"]:
+            break
+    passed = sum(1 for r in results if r["pass"])
+    out: dict[str, Any] = {
+        "total": len(results), "passed": passed, "failed": len(results) - passed,
+        "seconds": round((datetime.now() - started).total_seconds(), 1),
+        "results": results,
+    }
+    if len(results) < len(cases):
+        out["not_run"] = len(cases) - len(results)
+    if diagnose and failed_http:
+        try:
+            out["gateway_errors"] = gateway_errors(
+                minutes=15, min_status=400, max_rows=5)["entries"]
+        except SapConnectionError as exc:
+            out["gateway_errors_note"] = str(exc)[:200]
+    return out
 
 
 # ---------------------------------------------------------------------------
