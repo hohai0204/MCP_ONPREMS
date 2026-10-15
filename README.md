@@ -64,7 +64,8 @@ Claude Code  --stdio/MCP-->  server.py (FastMCP)
 | `sap_read_message_class`    | Message class texts (T100) | no |
 | `sap_join_read`             | Client-side join of two table reads (sensitive-table blocklist applies) | no |
 | `sap_user_auth`             | Authorization values a user holds for one auth object | no |
-| `sap_write_function_module` | Replace source of an existing FM; whole function group syntax-checked first, previous source returned | **yes** |
+| `sap_write_function_module` | Replace an FM's source, or create a new FM in an existing function group (`create=true`); whole group syntax-checked first | **yes** |
+| `sap_delete_function_module` | Delete one mistaken Z/Y FM in a local package; returns its source as `backup` (needs `ZMCP_ADT_FMDELETE`) | **yes** |
 | `sap_read_dump`             | ST22 dump detail: error, program/line, SY-fields, source context | no |
 | `sap_read_applog`           | SLG1 application log headers + messages (needs `ZMCP_ADT_APPLOG`, see `abap/README.md`) | no |
 

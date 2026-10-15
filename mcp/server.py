@@ -580,13 +580,44 @@ def sap_user_auth(user: str, object: str, max_rows: int = 200) -> dict:
 
 
 @mcp.tool()
-def sap_write_function_module(name: str, source: str) -> dict:
-    """Replace the source of an EXISTING function module (full text incl.
-    FUNCTION ... ENDFUNCTION; interface unchanged). The whole function group
-    is syntax-checked with the new source first; a failing check writes
-    nothing. Returns the previous source as `backup`. Requires
-    SAP_ALLOW_WRITE=true and honours SAP_ALLOWED_PACKAGES."""
-    return _safe(ops.write_function_module, name, source)
+def sap_write_function_module(
+    name: str,
+    source: str,
+    create: bool = False,
+    function_group: str | None = None,
+    short_text: str = "",
+    remote: bool = True,
+    imports: list[dict] | None = None,
+    exports: list[dict] | None = None,
+    changing: list[dict] | None = None,
+    exceptions: list[str] | None = None,
+    transport: str = "",
+) -> dict:
+    """Write a function module. Requires SAP_ALLOW_WRITE=true; honours
+    SAP_ALLOWED_PACKAGES. The whole function group is syntax-checked with the
+    new source first (one syntax error breaks every FM of the group).
+
+    create=False: replace the source of an existing FM (full text incl.
+      FUNCTION ... ENDFUNCTION, interface unchanged); returns `backup`.
+    create=True: new FM in an existing function group. `source` is the
+      body only. Interface: imports/exports/changing = [{name, type,
+      optional?, default?, by_reference?}], exceptions = [names],
+      remote=True for RFC. `transport` is required unless the group is local.
+      A group that fails its check after creation gets the FM deleted again.
+    """
+    return _safe(ops.write_function_module, name, source, create, function_group,
+                 short_text, remote, imports, exports, changing, exceptions,
+                 transport)
+
+
+@mcp.tool()
+def sap_delete_function_module(name: str) -> dict:
+    """Delete one function module written by mistake. Only Z/Y modules in a
+    LOCAL package ($TMP...) and never the bridge's own FMs; transportable
+    objects must be deleted in SE37. Returns the deleted source as `backup`.
+    Requires SAP_ALLOW_WRITE=true and ZMCP_ADT_FMDELETE
+    (abap/zmcp_adt_fmdelete.abap). Destructive: confirm before use."""
+    return _safe(ops.delete_function_module, name)
 
 
 @mcp.tool()

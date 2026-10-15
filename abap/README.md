@@ -18,6 +18,7 @@ you reuse the toolset across projects.
 | `zmcp_adt_ddic_activate.abap` | `ZMCP_ADT_DDIC_ACTIVATE` | Activate staged DDIC objects |
 | `zmcp_adt_applog.abap` | `ZMCP_ADT_APPLOG` | Read application-log (SLG1) messages from the BALDAT cluster; own function group `ZMCP_ADT_APPLOG` |
 | `zmcp_adt_gwlog.abap` | `ZMCP_ADT_GWLOG` | Read the Gateway error log (`/IWFND/SU_ERRLOG`, string columns that RFC_READ_TABLE cannot read); same function group `ZMCP_ADT_APPLOG` |
+| `zmcp_adt_fmdelete.abap` | `ZMCP_ADT_FMDELETE` | Delete one mistaken Z/Y function module (local packages only, bridge FMs protected); same function group `ZMCP_ADT_APPLOG` |
 
 All live in function group **`ZMCP_ADT_UTILS`**. The four DDIC FMs are adapted
 from [superclaude-for-sap](https://github.com/babamba2/superclaude-for-sap)
@@ -69,6 +70,15 @@ standard `/IWFND/SUTIL_*` FMs use). `ERROR_CONTEXT` is gzip XML and is not
 decoded yet; the rest of the entry (text, source program/line, URI) is.
 `sap_gateway_admin` needs no custom object: it calls the standard FMs
 `/IWFND/SUTIL_CLEANUP_MD_CACHE` and `/IWBEP/SUTIL_CLEANUP_MD_CACHE`.
+
+**`ZMCP_ADT_FMDELETE` (optional, for `sap_delete_function_module`).** Third FM
+in the function group `ZMCP_ADT_APPLOG`; same interface as `ZMCP_ADT_GWLOG`,
+body from `zmcp_adt_fmdelete.abap`. It wraps the non-remote `FUNCTION_DELETE`
+and refuses: names not starting with Z/Y, the bridge's own FMs (exact list in
+the source), function groups outside a local `$` package, and users without
+`S_DEVELOP` delete authorization. After the group exists you can install it
+with `sap_write_function_module(create=true, function_group="ZMCP_ADT_APPLOG",
+...)` instead of pasting in SE37.
 
 > Updating an existing install: paste the whole body over the current FM source
 > and re-activate — `zmcp_adt_dispatch.abap` already includes the original

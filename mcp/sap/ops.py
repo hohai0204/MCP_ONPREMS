@@ -330,36 +330,226 @@ def _fm_precheck(fm: str, fg: str, include: str, source: str) -> None:
         raise SapConnectionError(f"Syntax check failed, {fm} not written: {res}")
 
 
-def write_function_module(name: str, source: str) -> dict:
-    """Replace the source of an EXISTING function module (full source incl.
-    FUNCTION ... ENDFUNCTION). The interface is unchanged. The old source is
-    returned as `backup` so a bad change can be restored. Requires
-    SAP_ALLOW_WRITE and honours SAP_ALLOWED_PACKAGES for the function group."""
-    _require_write()
-    fm = name.upper()
-    fg, include = _fm_include(fm)
+_FM_NAME_RE = re.compile(r"^[YZ][A-Z0-9_]{1,29}$")
+_FMDELETE_FM = "ZMCP_ADT_FMDELETE"
+
+
+def _fg_package(fg: str) -> str:
     ta = read_table("TADIR", ["DEVCLASS"], ["PGMID = 'R3TR'", "OBJECT = 'FUGR'",
                                             f"OBJ_NAME = {_q(fg)}"], 1)["rows"]
-    pkg = ta[0]["DEVCLASS"] if ta else "$TMP"
-    import os, fnmatch
+    if not ta:
+        raise SapConnectionError(f"Function group {fg} not found")
+    return ta[0]["DEVCLASS"]
+
+
+def _check_pkg_whitelist(fg: str, pkg: str) -> None:
+    import fnmatch
+    import os
     raw = (os.getenv("SAP_ALLOWED_PACKAGES") or "").strip()
     if raw and not any(fnmatch.fnmatch(pkg.upper(), p.strip().upper())
                        for p in raw.split(",") if p.strip()):
         raise SapConnectionError(
             f"Function group {fg} is in package {pkg}; SAP_ALLOWED_PACKAGES permits {raw}")
-    if not re.match(r"\s*FUNCTION\s+" + re.escape(fm.lower()) + r"\b", source, re.I | re.M):
-        raise SapConnectionError(f"source must start with FUNCTION {fm.lower()}.")
-    from .tools import read_function_module
-    backup = read_function_module(fm).get("source")
-    _fm_precheck(fm, fg, include, source)
-    get_client().call(
-        "SIW_RFC_WRITE_REPORT", I_NAME=include, I_OBJECT="PROG", I_OBJNAME=include,
-        I_PROGTYPE="I", I_TAB_CODE=source.replace("\r\n", "\n").rstrip("\n").split("\n"),
+
+
+def _body_lines(source: str) -> list[str]:
+    """Body of an FM: drop FUNCTION/ENDFUNCTION and the interface comment."""
+    out = []
+    head = re.compile(r"^\s*FUNCTION\s+[A-Za-z0-9_/]+\s*\.\s*$", re.I)
+    tail = re.compile(r"^\s*ENDFUNCTION\s*\.\s*$", re.I)
+    for ln in source.replace("\r\n", "\n").rstrip("\n").split("\n"):
+        if head.match(ln) or tail.match(ln) or ln.startswith('*"'):
+            continue
+        out.append(ln)
+    return out
+
+
+def _param_rows(spec: list[dict] | None, kind: str) -> list[dict]:
+    rows = []
+    for p in spec or []:
+        name = str(p.get("name", "")).upper()
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,29}", name):
+            raise SapConnectionError(f"invalid {kind} parameter name: {p.get('name')!r}")
+        typ = str(p.get("type", "")).upper()
+        if not typ:
+            raise SapConnectionError(f"{kind} parameter {name} needs a type")
+        if kind == "export":  # RSEXP has no OPTIONAL/DEFAULT/CHANGING columns
+            rows.append({
+                "PARAMETER": name, "TYP": typ, "TYPES": "",
+                "REFERENCE": "X" if p.get("by_reference") else "",
+                "DBFIELD": "", "CLASS": "", "REF_CLASS": "",
+                "LINE_OF": "", "TABLE_OF": "",
+            })
+            continue
+        rows.append({
+            "PARAMETER": name, "TYP": typ, "TYPES": "",
+            "OPTIONAL": "X" if p.get("optional") else "",
+            "DEFAULT": str(p.get("default", "")),
+            # by value unless by_reference is true (matches VALUE(...) in the
+            # interface comment of the existing ZMCP FMs)
+            "REFERENCE": "X" if p.get("by_reference") else "",
+            "CHANGING": "", "DBFIELD": "", "CLASS": "", "REF_CLASS": "",
+            "LINE_OF": "", "TABLE_OF": "",
+        })
+    return rows
+
+
+def _precheck_new(fm: str, fg: str, body: list[str], imports, exports, changing) -> None:
+    """Syntax check of a NEW FM: the group's flattened program plus the body
+    as a FORM whose parameters are declared as DATA (the interface of a new
+    FM does not exist yet). The group program gives the real attributes."""
+    from .tools import read_program
+
+    def _lines(name: str) -> list[str]:
+        return read_program(name).get("source", "").split("\n")
+
+    inc_re = re.compile(r"^\s*INCLUDE\s+([A-Z0-9_/]+)\s*\.", re.I)
+    out: list[str] = []
+    for ln in _lines("SAPL" + fg):
+        m = inc_re.match(ln)
+        if m and m.group(1).upper() == f"L{fg}UXX".upper():
+            out += _lines(m.group(1))
+        else:
+            out.append(ln)
+    out.append(f"FORM zmcp_chk_{fm[-18:].lower()}.")
+    for row in list(imports) + list(exports) + list(changing):
+        out.append(f"  DATA {row['PARAMETER'].lower()} TYPE {row['TYP'].lower()}.")
+    out += body
+    out.append("ENDFORM.")
+    try:
+        r = syntax_check("\n".join(out), "SAPL" + fg)
+    except SapConnectionError as exc:
+        raise SapConnectionError(
+            f"Syntax check failed, {fm} not created: {str(exc)[:500]}") from exc
+    res = r.get("result") or {}
+    if res and not res.get("ok", True):
+        raise SapConnectionError(f"Syntax check failed, {fm} not created: {res}")
+
+
+def write_function_module(
+    name: str,
+    source: str,
+    create: bool = False,
+    function_group: str | None = None,
+    short_text: str = "",
+    remote: bool = True,
+    imports: list[dict] | None = None,
+    exports: list[dict] | None = None,
+    changing: list[dict] | None = None,
+    exceptions: list[str] | None = None,
+    transport: str = "",
+) -> dict:
+    """Write a function module. Requires SAP_ALLOW_WRITE.
+
+    create=False (default): replace the source of an EXISTING FM (full text
+      incl. FUNCTION ... ENDFUNCTION; interface unchanged). The whole function
+      group is syntax-checked with the new source first. `backup` holds the
+      previous source.
+    create=True: new FM in an EXISTING function group. `source` is the body
+      (FUNCTION/ENDFUNCTION/interface comment are generated). Interface via
+      imports/exports/changing = [{name, type, optional?, default?,
+      by_reference?}], exceptions = [names]; remote=True makes it
+      RFC-enabled. A transport is required unless the group is local ($).
+      If the group fails its syntax check after creation the new FM is
+      deleted again.
+    """
+    _require_write()
+    fm = name.upper()
+    if not create:
+        fg, include = _fm_include(fm)
+        pkg = _fg_package(fg)
+        _check_pkg_whitelist(fg, pkg)
+        if not re.match(r"\s*FUNCTION\s+" + re.escape(fm.lower()) + r"\b",
+                        source, re.I | re.M):
+            raise SapConnectionError(f"source must start with FUNCTION {fm.lower()}.")
+        from .tools import read_function_module
+        backup = read_function_module(fm).get("source")
+        _fm_precheck(fm, fg, include, source)
+        get_client().call(
+            "SIW_RFC_WRITE_REPORT", I_NAME=include, I_OBJECT="PROG", I_OBJNAME=include,
+            I_PROGTYPE="I",
+            I_TAB_CODE=source.replace("\r\n", "\n").rstrip("\n").split("\n"),
+        )
+        return {"function": fm, "function_group": fg, "include": include,
+                "package": pkg, "written": True, "backup": backup,
+                "note": "Source written active. If the group now fails to load, "
+                        "restore `backup` with the same tool."}
+
+    # ---- create ----
+    if not _FM_NAME_RE.match(fm):
+        raise SapConnectionError("function name must match [YZ][A-Z0-9_]{1,29}")
+    if not function_group:
+        raise SapConnectionError("function_group is required for create")
+    fg = function_group.upper()
+    if read_table("TFDIR", ["FUNCNAME"], [f"FUNCNAME = {_q(fm)}"], 1)["rows"]:
+        raise SapConnectionError(f"Function module {fm} already exists")
+    pkg = _fg_package(fg)
+    _check_pkg_whitelist(fg, pkg)
+    if not pkg.startswith("$") and not transport:
+        raise SapConnectionError(
+            f"Function group {fg} is in transportable package {pkg}: pass a "
+            "modifiable transport request")
+    imp = _param_rows(imports, "import")
+    exp = _param_rows(exports, "export")
+    chg = _param_rows(changing, "changing")
+    body = _body_lines(source)
+    if not any(l.strip() for l in body):
+        raise SapConnectionError("source has no statements")
+    _precheck_new(fm, fg, body, imp, exp, chg)
+    res = get_client().call(
+        "RPY_FUNCTIONMODULE_INSERT",
+        FUNCNAME=fm, FUNCTION_POOL=fg, REMOTE_CALL="R" if remote else "",
+        SHORT_TEXT=(short_text or fm)[:74], CORRNUM=transport or "",
+        IMPORT_PARAMETER=imp, EXPORT_PARAMETER=exp, CHANGING_PARAMETER=chg,
+        EXCEPTION_LIST=[{"EXCEPTION": str(e).upper()} for e in (exceptions or [])],
+        NEW_SOURCE=body,
     )
+    include = res.get("FUNCTION_INCLUDE")
+    # real check of the group now that the FM exists; roll back on failure
+    try:
+        from .tools import read_function_module
+        full = read_function_module(fm).get("source") or ""
+        _fm_precheck(fm, fg, include or _fm_include(fm)[1], full)
+    except SapConnectionError as exc:
+        rolled = False
+        try:
+            delete_function_module(fm, _skip_checks=True)
+            rolled = True
+        except SapConnectionError:
+            pass
+        raise SapConnectionError(
+            f"{fm} was created but the group failed its syntax check "
+            f"({'rolled back' if rolled else 'ROLLBACK FAILED: delete it in SE37'}): "
+            f"{str(exc)[:400]}") from exc
     return {"function": fm, "function_group": fg, "include": include,
-            "package": pkg, "written": True, "backup": backup,
-            "note": "Source written active. If the group now fails to load, "
-                    "restore `backup` with the same tool."}
+            "package": pkg, "created": True, "remote_enabled": bool(remote)}
+
+
+def delete_function_module(name: str, _skip_checks: bool = False) -> dict:
+    """Delete ONE function module (e.g. one written by mistake) through
+    ZMCP_ADT_FMDELETE. Only Z/Y modules in LOCAL packages, never the bridge's
+    own FMs. The deleted source is returned as `backup`. Requires
+    SAP_ALLOW_WRITE (abap/zmcp_adt_fmdelete.abap must be installed)."""
+    _require_write()
+    fm = name.upper()
+    backup = None
+    try:
+        from .tools import read_function_module
+        backup = read_function_module(fm).get("source")
+    except SapConnectionError:
+        pass
+    try:
+        res = get_client().call(_FMDELETE_FM, IV_PARAMS=json.dumps({"function": fm}))
+    except SapConnectionError as exc:
+        raise SapConnectionError(
+            f"{_FMDELETE_FM} not usable ({str(exc)[:200]}). Install "
+            "abap/zmcp_adt_fmdelete.abap, see abap/README.md.") from exc
+    if res.get("EV_SUBRC", 0) != 0:
+        raise SapConnectionError(res.get("EV_MESSAGE") or "delete failed")
+    gone = not read_table("TFDIR", ["FUNCNAME"], [f"FUNCNAME = {_q(fm)}"], 1)["rows"]
+    out = json.loads(res.get("EV_RESULT") or "{}")
+    out.update({"deleted": gone, "message": res.get("EV_MESSAGE"), "backup": backup})
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +560,7 @@ _HEALTH_FMS = [
     ("ZMCP_ADT_TEXTPOOL", "text elements"),
     ("ZMCP_ADT_APPLOG", "sap_read_applog messages"),
     ("ZMCP_ADT_GWLOG", "sap_gateway_errors"),
+    ("ZMCP_ADT_FMDELETE", "sap_delete_function_module"),
     ("ZMCP_ADT_DDIC_TABL", "sap_write_ddic (tables)"),
     ("ZCTD_FM_GW_TEST", "sap_gateway_call / sap_gateway_test"),
     ("/IWFND/SUTIL_CLEANUP_MD_CACHE", "sap_gateway_admin clear_cache"),
