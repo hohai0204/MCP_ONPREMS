@@ -13,7 +13,7 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-from sap import tools
+from sap import ops, tools
 from sap.connection import SapConnectionError
 
 mcp = FastMCP("sap-rfc-bridge")
@@ -71,16 +71,55 @@ def _cap(result: dict) -> dict:
     return out
 
 
+def _audit(fn, args, kwargs, outcome: str) -> None:
+    """Append one JSON line per tool call to logs/audit.jsonl (git-ignored).
+    Large or sensitive arguments (source, body, payload) are reduced to their
+    length. Never raises: auditing must not break a tool call."""
+    try:
+        from datetime import datetime
+        from pathlib import Path
+        from sap.connection import get_client
+
+        def _brief(v):
+            if isinstance(v, str):
+                return v if len(v) <= 200 else f"<{len(v)} chars>"
+            if isinstance(v, (dict, list)):
+                t = json.dumps(v, ensure_ascii=False, default=str)
+                return v if len(t) <= 200 else f"<{type(v).__name__} {len(t)} chars>"
+            return v
+
+        cfg = get_client().config
+        rec = {
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "tool": fn.__name__,
+            "client": cfg.conn_params.get("client"),
+            "user": cfg.conn_params.get("user"),
+            "write_enabled": cfg.allow_write,
+            "args": [_brief(a) for a in args],
+            "kwargs": {k: _brief(v) for k, v in kwargs.items()},
+            "outcome": outcome[:200],
+        }
+        d = Path(__file__).resolve().parent.parent / "logs"
+        d.mkdir(exist_ok=True)
+        with open(d / "audit.jsonl", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+    except Exception:
+        pass
+
+
 def _safe(fn, *args, **kwargs) -> dict:
     """Run a tool, converting connection errors into a structured result so the
     MCP client sees a clean message instead of a stack trace. Results are
-    capped to SAP_MAX_OUTPUT_BYTES."""
+    capped to SAP_MAX_OUTPUT_BYTES. Every call is written to logs/audit.jsonl."""
     try:
         result = fn(*args, **kwargs)
+        _audit(fn, args, kwargs, "ok")
         return _cap(result if isinstance(result, dict) else {"result": result})
     except SapConnectionError as exc:
+        _audit(fn, args, kwargs, f"error: {exc}")
         return {"error": str(exc)}
     except Exception as exc:  # last-resort guard
+        _audit(fn, args, kwargs, f"unexpected: {exc}")
         return {"error": f"Unexpected error: {exc}"}
 
 
@@ -450,6 +489,104 @@ def sap_gateway_admin(
       SAP_RFC_READONLY_ALLOW). The cache is system-wide, not per client.
     """
     return _safe(tools.gateway_admin, action, service, version)
+
+
+@mcp.tool()
+def sap_health() -> dict:
+    """Check which helper function modules (ZMCP_ADT_*, ZCTD_FM_GW_TEST, the
+    standard cleanup/enqueue FMs) exist on the connected system and which
+    tool each one enables. Run it first when a tool reports a missing FM."""
+    return _safe(ops.health)
+
+
+@mcp.tool()
+def sap_read_jobs(
+    name: str | None = None,
+    user: str | None = None,
+    status: str | None = None,
+    days: int = 2,
+    max_rows: int = 50,
+) -> dict:
+    """Background jobs (SM37 list from TBTCO), newest first. name takes '%'
+    wildcards; status: S scheduled, P released, R running, F finished,
+    A aborted. days = how far back by scheduled start (default 2)."""
+    return _safe(ops.read_jobs, name, user, status, days, max_rows)
+
+
+@mcp.tool()
+def sap_read_locks(
+    user: str | None = None,
+    table: str | None = None,
+    argument: str | None = None,
+    max_rows: int = 100,
+) -> dict:
+    """Enqueue locks (SM12) of the connected client. Filter by lock owner,
+    table (lock object table) or lock argument prefix."""
+    return _safe(ops.read_locks, user, table, argument, max_rows)
+
+
+@mcp.tool()
+def sap_create_transport(
+    description: str,
+    owner: str | None = None,
+    category: str = "K",
+) -> dict:
+    """Create a transport request (category K workbench, W customizing).
+    Disabled unless SAP_ALLOW_WRITE=true. Release and import remain human."""
+    return _safe(ops.create_transport, description, owner, category)
+
+
+@mcp.tool()
+def sap_transport_check(trkorr: str, max_objects: int = 200) -> dict:
+    """Read-only pre-release check of a request: empty request, objects in a
+    local ($) package, objects that also sit in another open request."""
+    return _safe(ops.transport_check, trkorr, max_objects)
+
+
+@mcp.tool()
+def sap_read_message_class(
+    msgclass: str,
+    lang: str | None = None,
+    max_rows: int = 500,
+) -> dict:
+    """Messages of a message class (SE91 / T100) with their texts."""
+    return _safe(ops.read_message_class, msgclass, lang, max_rows)
+
+
+@mcp.tool()
+def sap_join_read(
+    left: dict,
+    right: dict,
+    on: dict,
+    how: str = "inner",
+    max_rows: int = 200,
+) -> dict:
+    """Join two tables (client-side; RFC_READ_TABLE has no JOIN).
+
+    left/right: {table, fields?, where?}. on: {left_field: right_field}.
+    how: inner or left. The right table is read only for the key values found
+    on the left, so make the left side selective. The sensitive-table
+    blocklist applies to both sides.
+    """
+    return _safe(ops.join_read, left, right, on, how, max_rows)
+
+
+@mcp.tool()
+def sap_user_auth(user: str, object: str, max_rows: int = 200) -> dict:
+    """Authorization values a user HAS for one authorization object, grouped
+    by authorization (e.g. user HAIHT, object S_DEVELOP). Use to explain a
+    'no authorization' error."""
+    return _safe(ops.user_auth, user, object, max_rows)
+
+
+@mcp.tool()
+def sap_write_function_module(name: str, source: str) -> dict:
+    """Replace the source of an EXISTING function module (full text incl.
+    FUNCTION ... ENDFUNCTION; interface unchanged). The whole function group
+    is syntax-checked with the new source first; a failing check writes
+    nothing. Returns the previous source as `backup`. Requires
+    SAP_ALLOW_WRITE=true and honours SAP_ALLOWED_PACKAGES."""
+    return _safe(ops.write_function_module, name, source)
 
 
 @mcp.tool()

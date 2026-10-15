@@ -56,6 +56,15 @@ Claude Code  --stdio/MCP-->  server.py (FastMCP)
 | `sap_gateway_errors`        | Gateway error log (/IWFND/ERROR_LOG) with summary by service/status (needs `ZMCP_ADT_GWLOG`) | no |
 | `sap_gateway_admin`         | Registered services (`status`) and metadata cache clear (`clear_cache`) | status: no / clear_cache: **yes** |
 | `sap_gateway_test`          | Batch OData test cases with assertions, `{{var}}` chaining, auto error-log diagnosis | GET: no |
+| `sap_health`                | Which helper FMs exist on this system and which tool each enables | no |
+| `sap_read_jobs`             | Background jobs (SM37 from TBTCO) | no |
+| `sap_read_locks`            | Enqueue locks (SM12) | no |
+| `sap_create_transport`      | Create a transport request (release/import stay human) | **yes** |
+| `sap_transport_check`       | Pre-release check: empty, `$` package objects, objects in other open requests | no |
+| `sap_read_message_class`    | Message class texts (T100) | no |
+| `sap_join_read`             | Client-side join of two table reads (sensitive-table blocklist applies) | no |
+| `sap_user_auth`             | Authorization values a user holds for one auth object | no |
+| `sap_write_function_module` | Replace source of an existing FM; whole function group syntax-checked first, previous source returned | **yes** |
 | `sap_read_dump`             | ST22 dump detail: error, program/line, SY-fields, source context | no |
 | `sap_read_applog`           | SLG1 application log headers + messages (needs `ZMCP_ADT_APPLOG`, see `abap/README.md`) | no |
 
@@ -400,3 +409,9 @@ SAProuter. Class source uses the remote-enabled `SIW_RFC_READ_CLIF_SOURCE`.
   long WHERE clauses are auto-wrapped to the 72-char OPTIONS line limit.
 * FM availability/interfaces can still vary by release — validate on your target.
 ```
+
+### Audit log
+
+Every tool call is appended to `logs/audit.jsonl` (git-ignored): time, tool,
+client, user, whether write was enabled, arguments (long values reduced to
+their length) and outcome. It is best-effort and never fails a call.
