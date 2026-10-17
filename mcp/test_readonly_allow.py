@@ -75,15 +75,23 @@ class HookAllowlist(unittest.TestCase):
             return hook.main()
 
     def test_run_rfc_listed_on_readonly_server_allowed(self):
-        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_run_rfc", "ZMCPT_FM_X", ["ZMCPT_FM_*"]), 0)
+        self.assertEqual(self.run_hook("mcp__sap-qa-ro__sap_run_rfc", "ZMCPT_FM_X", ["ZMCPT_FM_*"]), 0)
 
     def test_run_rfc_unlisted_blocked(self):
-        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_run_rfc", "ZCTD_FM_CREATE_BP", ["ZMCPT_FM_*"]), 2)
+        self.assertEqual(self.run_hook("mcp__sap-qa-ro__sap_run_rfc", "ZCTD_FM_CREATE_BP", ["ZMCPT_FM_*"]), 2)
 
     def test_other_write_tools_never_allowlisted(self):
-        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_write_program", "", ["*"]), 2)
-        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_activate", "", ["*"]), 2)
-        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_move_objects", "", ["*"]), 2)
+        self.assertEqual(self.run_hook("mcp__sap-qa-ro__sap_write_program", "", ["*"]), 2)
+        self.assertEqual(self.run_hook("mcp__sap-qa-ro__sap_activate", "", ["*"]), 2)
+        self.assertEqual(self.run_hook("mcp__sap-qa-ro__sap_move_objects", "", ["*"]), 2)
+
+    def test_new_write_tools_blocked_on_readonly_server(self):
+        for tool in ("sap_write_message_class", "sap_write_function_module", "sap_delete_function_module"):
+            self.assertEqual(self.run_hook(f"mcp__sap-qa-ro__{tool}", "", ["*"]), 2)
+
+    def test_client_360_blocked_by_default(self):
+        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_write_message_class", "", []), 2)
+        self.assertEqual(self.run_hook("mcp__sap-s4d-360__sap_run_rfc", "ANY_FM", []), 2)
 
     def test_writable_server_unchanged(self):
         self.assertEqual(self.run_hook("mcp__sap-s4d-100__sap_run_rfc", "ANY_FM", []), 0)
@@ -92,7 +100,7 @@ class HookAllowlist(unittest.TestCase):
         hook = load_hook()
         with mock.patch.object(Path, "read_text", side_effect=[
                 "SAP_RFC_READONLY_ALLOW=BASE_*\n", "# c\nSAP_RFC_READONLY_ALLOW='zmcpt_*, RFC_X'\nOTHER=1\n"]):
-            self.assertEqual(hook.readonly_allowlist("sap-s4d-360"), ["ZMCPT_*", "RFC_X"])
+            self.assertEqual(hook.readonly_allowlist("sap-qa-ro"), ["ZMCPT_*", "RFC_X"])
 
 
 if __name__ == "__main__":

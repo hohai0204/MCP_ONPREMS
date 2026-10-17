@@ -621,6 +621,30 @@ def sap_delete_function_module(name: str) -> dict:
 
 
 @mcp.tool()
+def sap_write_message_class(
+    name: str,
+    messages: list[dict],
+    transport: str = "",
+    language: str = "E",
+    delete: bool = False,
+) -> dict:
+    """Add / change (or delete) messages of an EXISTING Z/Y message class (SE91).
+
+    Args:
+        name: message class, e.g. ZMC_CTD (must already exist).
+        messages: [{"number": "560", "text": "..."}]; number 000-999, text max
+            73 chars (delete ignores text).
+        transport: request for a class in a transportable package (recorded as
+            R3TR MSAG, same as SE91). Not needed for $TMP classes.
+        language: message language, default E.
+        delete: True removes the listed numbers instead of writing them.
+    Returns the written numbers read back from T100 (`verified`).
+    Requires SAP_ALLOW_WRITE=true and ZMCP_ADT_MSAG (abap/zmcp_adt_msag.abap).
+    """
+    return _safe(ops.write_message_class, name, messages, transport, language, delete)
+
+
+@mcp.tool()
 def sap_gateway_test(
     cases: list[dict],
     stop_on_fail: bool = False,

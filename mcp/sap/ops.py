@@ -552,6 +552,57 @@ def delete_function_module(name: str, _skip_checks: bool = False) -> dict:
     return out
 
 
+_MSAG_FM = "ZMCP_ADT_MSAG"
+
+
+def write_message_class(class_name: str, messages: list[dict], transport: str = "",
+                        language: str = "E", delete: bool = False) -> dict:
+    """Add / change (or delete) messages of an EXISTING Z/Y message class (SE91)
+    through ZMCP_ADT_MSAG. messages = [{"number": "560", "text": "..."}]; text
+    max 73 chars, delete ignores text. Transportable class -> `transport` is
+    required (recorded as R3TR MSAG, like SE91). The result is read back from
+    T100 (`verified`). Requires SAP_ALLOW_WRITE and abap/zmcp_adt_msag.abap."""
+    _require_write()
+    name = (class_name or "").strip().upper()
+    if not re.match(r"^[YZ][A-Z0-9_/]{1,19}$", name):
+        raise SapConnectionError("class_name must be a Z/Y message class name")
+    if not messages:
+        raise SapConnectionError("messages is empty")
+    rows = []
+    for m in messages:
+        num = str(m.get("number", "")).strip()
+        if not re.fullmatch(r"\d{1,3}", num):
+            raise SapConnectionError(f"message number {num!r} is not 000-999")
+        rows.append({"number": num.zfill(3), "text": str(m.get("text", ""))})
+    if len({r["number"] for r in rows}) != len(rows):
+        raise SapConnectionError("duplicate message number in messages")
+    lang = (language or "E").strip().upper()[:1] or "E"
+    payload = {"action": "DELETE" if delete else "UPSERT", "class": name,
+               "language": lang, "transport": (transport or "").strip().upper(),
+               "messages": rows}
+    try:
+        res = get_client().call(_MSAG_FM, IV_PARAMS=json.dumps(payload, ensure_ascii=False))
+    except SapConnectionError as exc:
+        raise SapConnectionError(
+            f"{_MSAG_FM} not usable ({str(exc)[:200]}). Install "
+            "abap/zmcp_adt_msag.abap, see abap/README.md.") from exc
+    if res.get("EV_SUBRC", 0) != 0:
+        raise SapConnectionError(res.get("EV_MESSAGE") or "message write failed")
+    nums = ", ".join(_q(r["number"]) for r in rows)
+    back = read_table("T100", ["MSGNR", "TEXT"],
+                      [f"SPRSL = {_q(lang)}", f"ARBGB = {_q(name)}", f"MSGNR IN ({nums})"],
+                      len(rows))["rows"]
+    got = {b["MSGNR"]: b["TEXT"] for b in back}
+    if delete:
+        ok = not got
+    else:
+        ok = all(got.get(r["number"], "").strip() == r["text"].strip() for r in rows)
+    out = json.loads(res.get("EV_RESULT") or "{}")
+    out.update({"message": res.get("EV_MESSAGE"), "verified": ok,
+                "stored": [{"number": k, "text": v} for k, v in sorted(got.items())]})
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
@@ -561,6 +612,7 @@ _HEALTH_FMS = [
     ("ZMCP_ADT_APPLOG", "sap_read_applog messages"),
     ("ZMCP_ADT_GWLOG", "sap_gateway_errors"),
     ("ZMCP_ADT_FMDELETE", "sap_delete_function_module"),
+    ("ZMCP_ADT_MSAG", "sap_write_message_class"),
     ("ZMCP_ADT_DDIC_TABL", "sap_write_ddic (tables)"),
     ("ZCTD_FM_GW_TEST", "sap_gateway_call / sap_gateway_test"),
     ("/IWFND/SUTIL_CLEANUP_MD_CACHE", "sap_gateway_admin clear_cache"),

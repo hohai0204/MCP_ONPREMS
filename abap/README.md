@@ -19,6 +19,7 @@ you reuse the toolset across projects.
 | `zmcp_adt_applog.abap` | `ZMCP_ADT_APPLOG` | Read application-log (SLG1) messages from the BALDAT cluster; own function group `ZMCP_ADT_APPLOG` |
 | `zmcp_adt_gwlog.abap` | `ZMCP_ADT_GWLOG` | Read the Gateway error log (`/IWFND/SU_ERRLOG`, string columns that RFC_READ_TABLE cannot read); same function group `ZMCP_ADT_APPLOG` |
 | `zmcp_adt_fmdelete.abap` | `ZMCP_ADT_FMDELETE` | Delete one mistaken Z/Y function module (local packages only, bridge FMs protected); same function group `ZMCP_ADT_APPLOG` |
+| `zmcp_adt_msag.abap` | `ZMCP_ADT_MSAG` | Add / change / delete messages of an existing Z/Y message class (T100), records the class in a request (`RS_CORR_INSERT`, R3TR MSAG); same function group `ZMCP_ADT_APPLOG`; drives `sap_write_message_class` |
 
 All live in function group **`ZMCP_ADT_UTILS`**. The four DDIC FMs are adapted
 from [superclaude-for-sap](https://github.com/babamba2/superclaude-for-sap)
@@ -79,6 +80,16 @@ the source), function groups outside a local `$` package, and users without
 `S_DEVELOP` delete authorization. After the group exists you can install it
 with `sap_write_function_module(create=true, function_group="ZMCP_ADT_APPLOG",
 ...)` instead of pasting in SE37.
+
+**`ZMCP_ADT_MSAG` (optional, for `sap_write_message_class`).** Fourth FM in the
+function group `ZMCP_ADT_APPLOG`; same interface as `ZMCP_ADT_FMDELETE`
+(`IV_PARAMS TYPE STRING`; `EV_SUBRC TYPE I`, `EV_MESSAGE`, `EV_RESULT TYPE
+STRING`), body from `zmcp_adt_msag.abap`. Message classes are client-independent
+(T100), so one install per system covers every client. It only touches classes
+that already exist (create the class once in SE91), only Z/Y names, needs
+`S_DEVELOP` change authorization and, for a class in a transportable package, a
+request number (`transport`). `RPY_MESSAGE_ID_INSERT` is not usable for this: it
+only creates new classes.
 
 > Updating an existing install: paste the whole body over the current FM source
 > and re-activate — `zmcp_adt_dispatch.abap` already includes the original

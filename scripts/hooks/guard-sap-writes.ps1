@@ -7,7 +7,7 @@
 # sap-<name>), writes stay blocked unless the server is added here.
 $WritableServers = @("sap-s4d-100")
 
-$WriteTools = "sap_write_program|sap_activate|sap_run_rfc|sap_adt_dispatch|sap_textpool_write|sap_write_ddic|sap_delete_ddic|sap_activate_ddic|sap_move_objects"
+$WriteTools = "sap_write_program|sap_activate|sap_run_rfc|sap_adt_dispatch|sap_textpool_write|sap_write_ddic|sap_delete_ddic|sap_activate_ddic|sap_move_objects|sap_write_message_class|sap_write_function_module|sap_delete_function_module"
 
 # SAP_RFC_READONLY_ALLOW (mcp\.env, then mcp\profiles\<name>.env - the profile wins):
 # FMs a read-only server may call through sap_run_rfc. Same rule as guard_sap_writes.py.
